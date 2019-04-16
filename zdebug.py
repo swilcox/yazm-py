@@ -70,8 +70,8 @@ class ZDebugger:
         #TODO
 
     def debug_object_tree(self, *args, **kwargs):
-        pass
-        #TODO
+        tree = self.zm.get_object_tree()
+        self.zm.ui.zoutput(tree.print_tree("", 0, False))
 
     def debug_object_properties(self, input: str, *args, **kwargs):
         pass

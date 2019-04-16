@@ -46,6 +46,7 @@ class ZMachine(object):
     """ZMachine Class"""
     def __init__(self, raw_data: bytes):
         self.memory = ZData(raw_data)
+        self.initial_pc = self.header.pc
         self.pc = self.header.pc
         self.version = self.header.version
         self.obj_size = 9 if self.version <= 3 else 14
@@ -53,6 +54,8 @@ class ZMachine(object):
         self._prop_offset = 3 if self.version <= 3 else 6
         self.debugger = ZDebugger(self)
         self.ui = ZUIStd()
+        self.undos = []
+        self.redos = []
         self.separators = []
         self.dictionary = {}
         self.populate_dictionary()
@@ -309,6 +312,8 @@ class ZMachine(object):
         while next_ > 0:
             parent.children.append(ZObject(next_, self))
             next_ = self.get_sibling(next_)
+        for child in parent.children:
+            self.add_object_children(child)
 
     def get_object_tree(self) -> ZObject:
         root = ZObject(0, self)
@@ -445,7 +450,5 @@ if __name__ == "__main__":
         zdata = ZData(f.read())
     zmachine = ZMachine(zdata)
 
-    root = zmachine.get_object_tree()
-
-    print(root.print_tree('', 0, False))
+    zmachine.debugger.debug_object_tree()
     zmachine.debugger.debug_dictionary()
