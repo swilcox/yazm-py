@@ -7,3 +7,6 @@ class ZUIStd:
 
     def zinput(self) -> str:
         return input('> ')
+
+    def set_status_bar(self, left: str, right: str):
+        print(f'status bar --> {left} {right}')
