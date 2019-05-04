@@ -1,9 +1,14 @@
 from __future__ import annotations
 from dataclasses import dataclass
+from random import Random
+from typing import List
 import sys
 
+from enums import StatusLineType, Operand, Opcode
+from options import Options
 from zdata import ZData
 from zheader import Header
+from zinstruction import Branch, Instruction
 from zdebug import ZDebugger
 from zui_std import ZUIStd
 import zscii
@@ -44,6 +49,12 @@ class ZObjectProperty:
 
 class ZMachine(object):
     """ZMachine Class"""
+
+    # _instr_map = {
+    #     Opcode.OP2_1: ZMachine.do_je,
+    #     Opcode.OP2_2: ZMachine.do_je,
+    # }
+
     def __init__(self, raw_data: bytes):
         self.memory = ZData(raw_data)
         self.initial_pc = self.header.pc
@@ -54,12 +65,27 @@ class ZMachine(object):
         self._prop_offset = 3 if self.version <= 3 else 6
         self.debugger = ZDebugger(self)
         self.ui = ZUIStd()
+        self.current_state = None   # (str, bytearray)
+        self.save_name = ''
+        self.save_dir = ''
+        self.original_dynamic = bytearray([])
+        self.options = Options.default()
+        self.instr_log = ''
         self.undos = []
         self.redos = []
+        self.frames = []
         self.separators = []
+        self.rng = Random()
+        self.rng.seed(self.options.rand_seed)
         self.dictionary = {}
         self.populate_dictionary()
+        self._instr_map = {
+            Opcode.OP2_1: self.do_je,
+            Opcode.OP2_2: self.do_jl,
+            
 
+        }
+        
     @property
     def header(self) -> Header:
         return Header(self.memory)
@@ -138,74 +164,176 @@ class ZMachine(object):
         return self.find_object('cretin') or self.find_object('you') or self.find_object('yourself')
 
     def test_attr(self, obj_id: int, attr: int) -> int:
-        return 0
-        #TODO: build!
+        if attr > self.attr_width * 8:
+            raise Exception(f"Can't test out-of-bounds attribute: {attr}")
+        addr = self.get_object_addr(obj_id) + attr / 8
+        byte = self.memory.u8(addr)
+        bit = attr % 8
+        return 1 if byte & (128 >> bit) != 0 else 0
 
     def set_attr(self, obj_id: int, attr: int):
-        pass
-        #TODO: build!
+        if attr > self.attr_width * 8:
+            raise Exception(f"Can't set out-of-bounds attribute: {attr}")
+        addr = self.get_object_addr(object) + attr / 8
+        byte = self.memory.u8(addr)
+        bit = attr % 8
+        self.memory.write_u8(addr, byte | (128 >> bit))
 
     def clear_attr(self, obj_id: int, attr: int):
-        pass
-        #TODO: build!
+        if attr > self.attr_width * 8:
+            raise Exception(f"Can't set out-of-bounds attribute: {attr}")
+        addr = self.get_object_addr(object) + attr / 8
+        byte = self.memory.u8(addr)
+        bit = attr % 8
+        self.memory.write_u8(addr, byte & ~(128 >> bit))
 
     def get_default_prop(self, property_number: int) -> int:
-        pass
-        #TODO: build!
+        word_index = (property_number - 1)
+        addr = self.prop_defaults + word_index * 2
+        return self.memory.u16(addr)
 
     def read_object_prop(self, addr: int) -> ZObjectProperty:
-        pass
-        #TODO: build!
+        header = self.memory.u8(addr)
+        length = 0
+        num = 0
+        value_addr = 0
+        if 1 <= self.version <= 3:
+            num = header % 32
+            length = header / 32 + 1
+            value_addr = addr + 1
+        else:
+            num = header & 0b0011_1111
+            if header & 0b1000_0000 != 0:
+                length = self.memory.u8(addr + 1) & 0b0011_1111
+                if length == 0:
+                    length = 64
+            else:
+                length = 2 if header & 0b0100_0000 != 0 else 1
+                value_addr = addr + 1
+        
+        return ZObjectProperty(
+            number=num,
+            length=length,
+            addr=value_addr,
+            next_=value_addr + length
+        )
 
     def find_prop(self, obj_id: int, property_number: int) -> ZObjectProperty:
-        pass
-        #TODO: build!
+        if property_number == 0:
+            return ZObjectProperty()
+        
+        addr = self.get_object_prop_table_addr(obj_id)
+        str_length = self.memory.u8(addr) * 2
+        first_addr = addr + str_length + 1
+        prop = self.read_object_prop(first_addr)
+        while prop.number != 0 and prop.number != property_number:
+            if property_number > prop.number:
+                return ZObjectProperty()
+            prop = self.read_object_prop(prop.next_)
+        return prop
     
     def get_prop_value(self, obj_id: int, property_number: int) -> int:
-        pass
-        #TODO: build!
+        prop = self.find_prop(obj_id, property_number)
+        if prop.number == 0:
+            return self.get_default_prop(property_number)
+        elif prop.length == 1:
+            return self.memory.u8(prop.addr)
+        return self.memory.u16(prop.addr)
 
     def get_prop_addr(self, obj_id: int, property_number: int) -> int:
-        pass
-        #TODO: build!
+        prop = self.find_prop(obj_id, property_number)
+        return prop.addr if prop.number != 0 else 0
 
-    def get_prop_len(self, obj_id: int, property_number: int) -> int:
-        pass
-        #TODO: build!
+    def get_prop_len(self, prop_data_addr: int) -> int:
+        if prop_data_addr == 0:
+            return 0
+        prop_header = self.memory.u8(prop_data_addr - 1)
+        if self.version <= 3:
+            return prop_header / 32 + 1
+        elif prop_header & 0b1000_0000 != 0:
+            result = prop_header & 0b0011_1111
+            return 64 if result == 0 else result
+        elif prop_header & 0b0100_0000 != 0:
+            return 2
+        return 1
 
     def get_next_prop(self, obj_id: int, property_number: int) -> int:
-        pass
-        #TODO: build!
+        if property_number == 0:
+            addr = self.get_object_prop_table_addr(obj_id)
+            str_length = self.memory.u8(addr) * 2
+            first_prop = addr + str_length + 1
+            return self.read_object_prop(first_prop).number
+        prop = self.find_prop(obj_id, property_number)
+        return self.read_object_prop(prop.next_).number
 
     def put_prop(self, obj_id: int, property_number: int, value: int):
-        pass
-        #TODO: build!
+        prop = self.find_prop(obj_id, property_number)
+        if prop.length == 1:
+            self.memory.write_u8(prop.addr, value)
+        else:
+            self.memory.write_u16(prop.addr, value)
 
+    # Encrusted Web UI Only... 
     def get_current_room(self) -> (int, str):
-        pass
-        #TODO: build!
+        num = self.read_global(0)
+        name = self.get_object_name(num)
+        return (num, name)
 
     def get_status(self) -> (str, str):
-        pass
-        #TODO
+        num = self.read_global(0)
+        left = self.get_object_name(num)
+        if self.header.flag1.status_line_type == StatusLineType.score:
+            score = self.read_global(1)
+            turns = self.read_global(2)
+            right = f"{score}/{turns}"
+        else:
+            hours = self.read_global(1)
+            minutes = self.read_global(2)
+            am_pm = "PM" if hours >= 12 else "AM"
+            if hours > 12:
+                hours -= 12
+            right = f"{hours:02}:{minutes:02} {am_pm}"
+        return (left, right)
+
+    def update_status_bar(self):
+        if self.version > 3:
+            return
+        left, right = self.get_status()
+        self.ui.set_status_bar(left, right)
 
     def make_save_state(self, pc: int) -> bytes:
-        pass
-        #TODO
+        dynamic = self.memory[0: self.header.static_memory_addr]
+        # original = self.original_dynamic.as_slice()
+        frames = self.frames
+        chksum = self.header.checksum
+        release = self.header.release
+        serial = self.header.serial_number
+        ## QuetzalSave::make(pc, dynamic, original, frames, chksum, relase, serial)
+        # TODO: finish this!
 
     def restore_state(self, data: ZData):
-        pass
-        #TODO
-
+        ## save = QuetzalSave::from_bytes(data, self.original_dynamic)
+        #if save.checksum != self.header.checksum:
+        #    raise Exception('Invalid Checksum!')
+        #if self.static_memory_addr < len(save.memory):
+        #    raise Exception('Invalid save, memory is too long!')
+        #self.pc = save.pc
+        #self.frames = save.frames
+        #self.memory.write(0, save.memory.as_slice())
+        ...
+        #TODO: implement
+        
     def undo(self) -> bool:
-        pass
+        ...
+        return False        
         #TODO
 
     def redo(self) -> bool:
-        pass
+        ...
+        return False
         #TODO
 
-    def get_arguments(self, operands: [int]) -> list:
+    def get_arguments(self, operands: List[Operand]) -> list:
         pass
         #TODO
 
@@ -226,6 +354,9 @@ class ZMachine(object):
         #TODO
 
     def handle_instruction(self, instr: Instruction):
+        args = self.get_arguments(instr.operands)
+        # TODO: something about env DEBUG
+        result = 0
         pass
         #TODO
 
@@ -374,40 +505,56 @@ class ZMachine(object):
         self.memory.write_u16(addr, value)
 
     def read_local(self, index: int) -> int:
-        # TODO: build out
-        return 0
+        return self.frames[-1].read_local(index)
 
     def write_local(self, index: int, value: int):
-        # TODO: build out
-        pass
+        self.frames[-1].write_local(index, value)
 
     def stack_push(self, value: int):
-        # TODO: build out
-        pass
+        self.frames[-1].stack_push(value)
     
     def stack_pop(self) -> int:
-        # TODO: build out
-        return 0
+        self.frames[-1].stack_pop()
 
     def stack_peek(self) -> int:
-        # TODO: build out
-        return 0
+        self.frames[-1].stack_peek()
 
     def read_variable(self, index: int) -> int:
-        # TODO: build out
-        return 0
+        if index == 0:
+            return self.stack_pop()
+        elif 1 <= index <= 15:
+            return self.read_local(index - 1)
+        elif 16 <= index <= 255:
+            return self.read_global(index - 16)
+        raise Exception('unreachable variable!')
 
     def read_indirect_variable(self, index: int) -> int:
-        # TODO: build out
-        return 0
+        if index == 0:
+            return self.stack_peek()
+        elif 1 <= index <= 15:
+            return self.read_local(index - 1)
+        elif 16 <= index <= 255:
+            return self.read_global(index - 16)
+        raise Exception('unreachable indirect variable')
 
     def write_variable(self, index: int, value: int):
-        # TODO: build out
-        pass
+        if index == 0:
+            self.stack_push(value)
+        elif 1 <= index <= 15:
+            self.write_local(index - 1, value)
+        elif 16 <= index <= 255:
+            self.write_global(index - 16, value)
+        raise Exception('unreachable variable')
 
     def write_indirect_variable(self, index: int, value: int):
-        # TODO: build out
-        pass
+        if index == 0:
+            self.stack_pop()
+            self.stack_push(value)
+        elif 1 <= index <= 15:
+            self.write_local(index - 1, value)
+        elif 16 <= index <= 255:
+            self.write_global(index - 16, value)
+        raise Exception('unreachable indirect variable')
 
     def get_abbrev(self, index: int) -> str:
         if index > 96:
@@ -444,7 +591,39 @@ class ZMachine(object):
         length = 6 if self.version <= 3 else 9
         return self.dictionary.get(word[:length], 0)
 
-    
+    def tokenise(self, text: str, parse_addr: int):
+        start = 1 if self.version <= 4 else 2
+        input_str = text
+        found = {}
+        for sep in self.separators:
+            input_str = input_str.replace(sep, f"  ")
+        token_list = [t for t in input_str.split() if len(t.strip())]
+        tokens = []
+        for token in token_list:
+            offset = found.get(token, 0)
+            position = text[offset:].find(token)
+            dict_addr = self.check_dictionary(token)
+            token_addr = offset + position + start
+            found[token] = offset + position + len(token)
+            tokens.append((dict_addr, len(token), token_addr))
+
+        write = self.memory.get_writer(parse_addr + 1)
+        write.byte(len(tokens))
+        for token in tokens:
+            d_addr, length, t_addr = token
+            write.word(d_addr)
+            write.byte(length)
+            write.byte(t_addr)
+
+    def do_je(self, *args) -> bool:
+        a, *values = args
+        return a in values
+
+    def do_jl(self, a: int, b: int) -> int:
+        return 0
+
+
+
 if __name__ == "__main__":
     with open(sys.argv[1], 'rb') as f:
         zdata = ZData(f.read())

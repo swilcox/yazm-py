@@ -1,6 +1,37 @@
+from __future__ import annotations
+
+
 class ZData(bytearray):
     """ZData Class."""
-   
+
+    class ZDataWriter:
+        def __init__(self, zd: ZData, addr: int):
+            self.current_addr = addr
+            self.zd = zd
+        
+        def byte(self, value: int):
+            self.zd.write_u8(self.current_addr, value)
+            self.current_addr += 1
+        
+        def word(self, value: int):
+            self.zd.write_u16(self.current_addr, value)
+            self.current_addr += 2
+
+    class ZDataReader:
+        def __init__(self, zd: ZData, addr: int):
+            self.current_addr = addr
+            self.zd = zd
+
+        def byte(self) -> int:
+            result = self.zd.u8(self.current_addr)
+            self.current_addr += 1
+            return result
+        
+        def word(self) -> int:
+            result = self.zd.u16(self.current_addr)
+            self.current_addr += 2
+            return result
+
     def u16(self, index: int) -> int:
         return self[index] << 8 | self[index + 1]
     
@@ -13,3 +44,9 @@ class ZData(bytearray):
     
     def write_u8(self, index: int, value: int):
         self[index] = value
+
+    def get_writer(self, addr: int) -> self.ZDataWriter:
+        return self.ZDataWriter(self, addr)
+
+    def get_reader(self, addr: int) -> self.ZDataReader:
+        return self.ZDataReader(self, addr)
