@@ -1,6 +1,6 @@
 from __future__ import annotations
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, List
 
 from enums import Opcode, Operand, OperandType
 if TYPE_CHECKING:
@@ -16,6 +16,7 @@ def _btm_5(num: int) -> int:
 
 
 def _get_types(bytes_: bytes) -> List[OperandType]:
+    # TODO: more complex stuff here !!!!
     return [OperandType(b) for b in bytes_]
 
 
@@ -33,8 +34,9 @@ class Branch:
 
 
 class Instruction:
+    """The Instruction Class for decoding and analyzing a ZMachine instruction."""
 
-    def __init__(self, addr: int, opcode: int = 0, name: str = None, operands: List[int], store: str = None, branch: Branch = None, text: str = None, next_: int = 0):
+    def __init__(self, addr: int, opcode: int = 0, name: str = None, operands: List[int] = None, store: str = None, branch: Branch = None, text: str = None, next_: int = 0):
         self.addr = addr
         self.opcode = opcode
         self._opcode = '' #lookup Opcode
@@ -111,20 +113,24 @@ class Instruction:
         )
 
     @classmethod
-    def does_store(self, opcode: Opcode) -> bool:
-        if opcode in (
+    def does_store(cls, opcode: Opcode) -> bool:
+        return opcode in (
             Opcode.OP2_8, Opcode.OP2_9, Opcode.OP2_15, Opcode.OP2_16
-        ):
+        )
+
+    @classmethod
+    def does_branch(cls, opcode: Opcode, version: int) -> bool:
+        if opcode in (Opcode.OP2_1, Opcode.OP2_2, Opcode.OP2_3, Opcode.OP2_4, Opcode.OP2_5, Opcode.OP2_6, Opcode.OP2_7, Opcode.OP2_10, Opcode.OP1_128, Opcode.OP1_129, Opcode.OP1_130, Opcode.OP0_189, Opcode.OP0_191, Opcode.VAR_247, Opcode.VAR_255, Opcode.EXT_1006, Opcode.EXT_1024, Opcode.EXT_1027):
+            return True
+        elif opcode == Opcode.OP0_181 and version < 4:
+            return True
+        elif opcode == Opcode.OP0_182 and version < 4:
             return True
         return False
 
     @classmethod
-    def does_branch(self, opcode: Opcode, version: int) -> bool:
-        return False
-
-    @classmethod
-    def does_text(self, opcode: Opcode) -> bool:
-        return False
+    def does_text(cls, opcode: Opcode) -> bool:
+        return opcode in (Opcode.OP0_178, Opcode.OP0_179)
 
     @classmethod
     def get_name(self, opcode: Opcode, version: int) -> str:
@@ -149,9 +155,3 @@ class Instruction:
         return self.addr == other.addr
     
     #TODO: __repr__ and/or __str__
-
-
-
-
-
-
