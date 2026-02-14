@@ -1,4 +1,4 @@
-from zscii import zscii_to_ascii
+from yazm.zscii import zscii_to_ascii
 
 
 def test_zscii_to_ascii():

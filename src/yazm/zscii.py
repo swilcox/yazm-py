@@ -1,7 +1,7 @@
 from __future__ import annotations
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
-    from zmachine import ZMachine
+    from .zmachine import ZMachine
 
 DEFAULT_A0 = 'abcdefghijklmnopqrstuvwxyz'
 DEFAULT_A1 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'

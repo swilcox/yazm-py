@@ -1,0 +1,25 @@
+[project]
+name = "yazm-py"
+version = "0.1.0"
+description = "A Z-machine interpreter in Python, targeting v3 story files"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = []
+
+[project.scripts]
+yazm = "yazm.main:main"
+
+[build-system]
+requires = ["setuptools>=75.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.uv]
+package = true
+
+[dependency-groups]
+dev = [
+    "pytest>=9.0.1",
+]

@@ -4,14 +4,15 @@ from random import Random
 from typing import List
 import sys
 
-from enums import StatusLineType, Operand, Opcode
-from options import Options
-from zdata import ZData
-from zheader import Header
-from zinstruction import Branch, Instruction
-from zdebug import ZDebugger
-from zui_std import ZUIStd
-import zscii
+from .enums import StatusLineType, OperandType
+from .frame import Frame
+from .options import Options
+from .zdata import ZData
+from .zheader import Header
+from .zinstruction import Branch, Instruction
+from .zdebug import ZDebugger
+from .zui_std import ZUIStd
+from . import zscii
 
 
 class ZObject(object):
@@ -50,11 +51,6 @@ class ZObjectProperty:
 class ZMachine(object):
     """ZMachine Class"""
 
-    # _instr_map = {
-    #     Opcode.OP2_1: ZMachine.do_je,
-    #     Opcode.OP2_2: ZMachine.do_je,
-    # }
-
     def __init__(self, raw_data: bytes):
         self.memory = ZData(raw_data)
         self.initial_pc = self.header.pc
@@ -65,26 +61,20 @@ class ZMachine(object):
         self._prop_offset = 3 if self.version <= 3 else 6
         self.debugger = ZDebugger(self)
         self.ui = ZUIStd()
-        self.current_state = None   # (str, bytearray)
+        self.current_state = None
         self.save_name = ''
         self.save_dir = ''
         self.original_dynamic = bytearray([])
         self.options = Options.default()
-        self.instr_log = ''
         self.undos = []
         self.redos = []
-        self.frames = []
+        self.frames = [Frame(0, None, [], [])]  # initial/main frame
         self.separators = []
         self.rng = Random()
         self.rng.seed(self.options.rand_seed)
         self.dictionary = {}
+        self.running = False
         self.populate_dictionary()
-        self._instr_map = {
-            Opcode.OP2_1: self.do_je,
-            Opcode.OP2_2: self.do_jl,
-            
-
-        }
         
     @property
     def header(self) -> Header:
@@ -136,7 +126,7 @@ class ZMachine(object):
             if next_ == obj_id:
                 return prev
             else:
-                get_older(this, obj_id, next_)
+                return get_older(this, obj_id, next_)
         if obj_id == parents_first_child:
             self.set_child(parent, younger_sibling)
         else:
@@ -166,7 +156,7 @@ class ZMachine(object):
     def test_attr(self, obj_id: int, attr: int) -> int:
         if attr > self.attr_width * 8:
             raise Exception(f"Can't test out-of-bounds attribute: {attr}")
-        addr = self.get_object_addr(obj_id) + attr / 8
+        addr = self.get_object_addr(obj_id) + attr // 8
         byte = self.memory.u8(addr)
         bit = attr % 8
         return 1 if byte & (128 >> bit) != 0 else 0
@@ -174,7 +164,7 @@ class ZMachine(object):
     def set_attr(self, obj_id: int, attr: int):
         if attr > self.attr_width * 8:
             raise Exception(f"Can't set out-of-bounds attribute: {attr}")
-        addr = self.get_object_addr(object) + attr / 8
+        addr = self.get_object_addr(obj_id) + attr // 8
         byte = self.memory.u8(addr)
         bit = attr % 8
         self.memory.write_u8(addr, byte | (128 >> bit))
@@ -182,14 +172,14 @@ class ZMachine(object):
     def clear_attr(self, obj_id: int, attr: int):
         if attr > self.attr_width * 8:
             raise Exception(f"Can't set out-of-bounds attribute: {attr}")
-        addr = self.get_object_addr(object) + attr / 8
+        addr = self.get_object_addr(obj_id) + attr // 8
         byte = self.memory.u8(addr)
         bit = attr % 8
         self.memory.write_u8(addr, byte & ~(128 >> bit))
 
     def get_default_prop(self, property_number: int) -> int:
         word_index = (property_number - 1)
-        addr = self.prop_defaults + word_index * 2
+        addr = self.header.obj_table_addr - (31 if self.version <= 3 else 63) * 2 + word_index * 2
         return self.memory.u16(addr)
 
     def read_object_prop(self, addr: int) -> ZObjectProperty:
@@ -199,7 +189,7 @@ class ZMachine(object):
         value_addr = 0
         if 1 <= self.version <= 3:
             num = header % 32
-            length = header / 32 + 1
+            length = header // 32 + 1
             value_addr = addr + 1
         else:
             num = header & 0b0011_1111
@@ -249,7 +239,7 @@ class ZMachine(object):
             return 0
         prop_header = self.memory.u8(prop_data_addr - 1)
         if self.version <= 3:
-            return prop_header / 32 + 1
+            return prop_header // 32 + 1
         elif prop_header & 0b1000_0000 != 0:
             result = prop_header & 0b0011_1111
             return 64 if result == 0 else result
@@ -333,43 +323,55 @@ class ZMachine(object):
         return False
         #TODO
 
-    def get_arguments(self, operands: List[Operand]) -> list:
-        pass
-        #TODO
+    def get_arguments(self, operands, optypes: List[OperandType]) -> list:
+        arguments = []
+        for i, op in enumerate(operands):
+            if optypes[i] == OperandType.VARIABLE:
+                arguments.append(self.read_variable(op))
+            else:
+                arguments.append(op)
+        return arguments
 
     def return_from_routine(self, value: int):
-        pass
-        #TODO
+        frame = self.frames.pop()
+        self.pc = frame.resume
+        if frame.store is not None:
+            self.write_variable(frame.store, value)
 
-    def process_branch(self, branch: Branch, next_: int, result: int):
-        pass
-        #TODO
+    def process_branch(self, branch: Branch, next_: int, result: bool):
+        do_branch = (result and branch.condition) or (not result and not branch.condition)
+        if do_branch:
+            if branch.returns is not None:
+                self.return_from_routine(branch.returns)
+            else:
+                self.pc = branch.address
+        else:
+            self.pc = next_
 
     def process_result(self, instr: Instruction, value: int):
-        pass
-        #TODO
+        if instr.store is not None:
+            self.write_variable(instr.store, value & 0xFFFF)
+        if instr.branch is not None:
+            self.process_branch(instr.branch, instr.next_, bool(value))
+        else:
+            self.pc = instr.next_
 
     def decode_instruction(self, addr: int) -> Instruction:
-        pass
-        #TODO
+        return Instruction.decode(self, addr)
 
     def handle_instruction(self, instr: Instruction):
-        args = self.get_arguments(instr.operands)
-        # TODO: something about env DEBUG
-        result = 0
-        pass
-        #TODO
+        from .ops import dispatch
+        args = self.get_arguments(instr.operands, instr.optypes)
+        dispatch(self, instr, args)
 
     def is_debug_command(self, input_: str) -> bool:
         return self.debugger.is_debug_command(input_)
 
     def run(self):
-        pass
-        #TODO
-
-    def step(self) -> bool:
-        #TODO
-        pass
+        self.running = True
+        while self.running:
+            instr = self.decode_instruction(self.pc)
+            self.handle_instruction(instr)
 
     def handle_input(self, input_: str):
         # TODO: if self.paused_instr...
@@ -408,7 +410,7 @@ class ZMachine(object):
             self.memory.write_u16(addr, parent)
 
     def get_child(self, obj_id: int) -> int:
-        if object == 0:
+        if obj_id == 0:
             return 0
         addr = self.get_object_addr(obj_id) + self.attr_width
         if self.version <= 3:
@@ -417,7 +419,7 @@ class ZMachine(object):
             return self.memory.u16(addr + 4)
 
     def get_sibling(self, obj_id: int) -> int:
-        if object == 0:
+        if obj_id == 0:
             return 0
         addr = self.get_object_addr(obj_id) + self.attr_width
         if self.version <= 3:
@@ -514,10 +516,10 @@ class ZMachine(object):
         self.frames[-1].stack_push(value)
     
     def stack_pop(self) -> int:
-        self.frames[-1].stack_pop()
+        return self.frames[-1].stack_pop()
 
     def stack_peek(self) -> int:
-        self.frames[-1].stack_peek()
+        return self.frames[-1].stack_peek()
 
     def read_variable(self, index: int) -> int:
         if index == 0:
@@ -544,7 +546,8 @@ class ZMachine(object):
             self.write_local(index - 1, value)
         elif 16 <= index <= 255:
             self.write_global(index - 16, value)
-        raise Exception('unreachable variable')
+        else:
+            raise Exception('unreachable variable')
 
     def write_indirect_variable(self, index: int, value: int):
         if index == 0:
@@ -554,7 +557,8 @@ class ZMachine(object):
             self.write_local(index - 1, value)
         elif 16 <= index <= 255:
             self.write_global(index - 16, value)
-        raise Exception('unreachable indirect variable')
+        else:
+            raise Exception('unreachable indirect variable')
 
     def get_abbrev(self, index: int) -> str:
         if index > 96:
@@ -562,12 +566,13 @@ class ZMachine(object):
         offset = 2 * index
         word_addr = self.memory.u16(self.header.abbrev_addr + offset)
         addr = word_addr * 2
-        self.read_zstring(addr)
+        return self.read_zstring(addr)
 
     def zstring_length(self, addr: int) -> int:
         length = 0
         while self.memory.u16(addr + length) & 0x8000 == 0:
             length += 2
+        length += 2  # include the final word
         return length
  
     def populate_dictionary(self):
@@ -596,7 +601,7 @@ class ZMachine(object):
         input_str = text
         found = {}
         for sep in self.separators:
-            input_str = input_str.replace(sep, f"  ")
+            input_str = input_str.replace(chr(sep), f"  ")
         token_list = [t for t in input_str.split() if len(t.strip())]
         tokens = []
         for token in token_list:
@@ -615,19 +620,27 @@ class ZMachine(object):
             write.byte(length)
             write.byte(t_addr)
 
-    def do_je(self, *args) -> bool:
-        a, *values = args
-        return a in values
-
-    def do_jl(self, a: int, b: int) -> int:
-        return 0
-
+    def do_call(self, instr: Instruction, addr: int, args: List[int]):
+        if addr == 0:
+            self.process_result(instr, 0)
+            return
+        routine_addr = self.unpack_routine_addr(addr)
+        read = self.memory.get_reader(routine_addr)
+        count = read.byte()
+        locals_ = []
+        for _ in range(count):
+            if self.version <= 4:
+                locals_.append(read.word())
+            else:
+                locals_.append(0)
+        first_instr = read.position
+        frame = Frame(instr.next_, instr.store, locals_, args)
+        self.pc = first_instr
+        self.frames.append(frame)
 
 
 if __name__ == "__main__":
     with open(sys.argv[1], 'rb') as f:
-        zdata = ZData(f.read())
-    zmachine = ZMachine(zdata)
-
-    zmachine.debugger.debug_object_tree()
-    zmachine.debugger.debug_dictionary()
+        data = f.read()
+    zmachine = ZMachine(data)
+    zmachine.run()

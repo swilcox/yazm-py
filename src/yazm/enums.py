@@ -24,8 +24,21 @@ class OperandType(IntFlag):
     OMITTED = 4
 
     @classmethod
-    def from_bytes(cls, bytes_: bytes) -> List[OperandType]:
-        return []
+    def from_byte(cls, szbyte: int) -> List[OperandType]:
+        sizes = []
+        offset = 6
+        while offset >=0 and (szbyte >> offset) & 3 != 3:
+            size = (szbyte >> offset) & 3
+            if size == 0b00:
+                sizes.append(cls.LARGE)
+            elif size == 0b01:
+                sizes.append(cls.SMALL)
+            elif size == 0b10:
+                sizes.append(cls.VARIABLE)
+            elif size == 0b11:
+                sizes.append(cls.OMITTED)
+            offset -= 2
+        return sizes
 
 
 class Operand(IntFlag):
@@ -34,10 +47,25 @@ class Operand(IntFlag):
     VARIABLE = 0b10
 
 
-# class OpSize(Enum):
-#     WORD = 0b00
-#     BYTE = 0b01
-#     VAR = 0b10
+class OpSize(Enum):
+    WORD = 0b00
+    BYTE = 0b01
+    VAR = 0b10
+
+    @classmethod
+    def from_byte(cls, szbyte: int) -> List[OpSize]:
+        sizes = []
+        offset = 6
+        while offset >=0 and (szbyte >> offset) & 3 != 3:
+            size = (szbyte >> offset) & 3
+            if size == 0b00:
+                sizes.append(cls.WORD)
+            elif size == 0b01:
+                sizes.append(cls.BYTE)
+            elif size == 0b10:
+                sizes.append(cls.VAR)
+            offset -= 2
+        return sizes
 
 
 class StatusLineType(IntFlag):
@@ -75,7 +103,8 @@ BASE_OPCODE_NAMES = {
     'OP2_27': 'set_colour',
     'OP2_28': 'throw',
     'OP1_128': 'jz',
-    'OP1_130': 'get_sibling',
+    'OP1_129': 'get_sibling',
+    'OP1_130': 'get_child',
     'OP1_131': 'get_parent',
     'OP1_132': 'get_prop_len',
     'OP1_133': 'inc',

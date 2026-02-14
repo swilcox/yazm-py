@@ -1,6 +1,6 @@
 from dataclasses import dataclass
-from enums import StatusLineType
-from zdata import ZData
+from .enums import StatusLineType
+from .zdata import ZData
 
 
 @dataclass

@@ -17,6 +17,10 @@ class ZData(bytearray):
             self.zd.write_u16(self.current_addr, value)
             self.current_addr += 2
 
+        @property
+        def position(self) -> int:
+            return self.current_addr
+
     class ZDataReader:
         def __init__(self, zd: ZData, addr: int):
             self.current_addr = addr
@@ -31,6 +35,10 @@ class ZData(bytearray):
             result = self.zd.u16(self.current_addr)
             self.current_addr += 2
             return result
+
+        @property
+        def position(self) -> int:
+            return self.current_addr
 
     def u16(self, index: int) -> int:
         return self[index] << 8 | self[index + 1]

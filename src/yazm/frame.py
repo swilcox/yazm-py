@@ -1,3 +1,6 @@
+from __future__ import annotations
+
+
 class Frame:
     def __init__(self, resume: int, store: int, locals_: list, arguments: list):
         self.stack = []
@@ -5,7 +8,7 @@ class Frame:
         for i in range(len(locals_)):
             self.locals.append(locals_[i])
             if len(arguments) > i:
-                self.locals[i] == arguments[i]
+                self.locals[i] = arguments[i]
         self.arg_count = len(arguments)
         self.resume = resume
         self.store = store               
@@ -18,7 +21,7 @@ class Frame:
         self.store = None
     
     @classmethod
-    def from_bytes(cls, bytes_: bytearray) -> cls:
+    def from_bytes(cls, bytes_: bytearray) -> Frame:
         resume = 0
         resume += (bytes_[0] << 16)
         resume += (bytes_[1] << 8)

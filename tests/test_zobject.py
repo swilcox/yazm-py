@@ -1,4 +1,4 @@
-from zmachine import ZObject, ZMachine
+from yazm.zmachine import ZObject, ZMachine
 
 
 def test_zobject():

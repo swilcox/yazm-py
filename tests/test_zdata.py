@@ -1,4 +1,4 @@
-from zdata import ZData
+from yazm.zdata import ZData
 
 
 def test_zdata_reads():
