@@ -220,6 +220,11 @@ def op_pull(zm: ZMachine, instr: Instruction, args: List[int]):
     zm.pc = instr.next_
 
 
+def op_sound_effect(zm: ZMachine, instr: Instruction, args: List[int]):
+    """sound_effect — silently ignored (sound not supported)"""
+    zm.pc = instr.next_
+
+
 # --- Print ---
 
 def op_print(zm: ZMachine, instr: Instruction, args: List[int]):
@@ -255,7 +260,9 @@ def op_print_char(zm: ZMachine, instr: Instruction, args: List[int]):
 
 def op_print_obj(zm: ZMachine, instr: Instruction, args: List[int]):
     """print object name"""
-    zm.ui.zoutput(zm.get_object_name(args[0]))
+    name = zm.get_object_name(args[0])
+    is_location = (args[0] == zm.read_global(0))
+    zm.ui.zoutput_object(name, zm.options.highlight_objects, is_location)
     zm.pc = instr.next_
 
 
@@ -518,6 +525,7 @@ DISPATCH_TABLE = {
     Opcode.VAR_231: op_random,
     Opcode.VAR_232: op_push,
     Opcode.VAR_233: op_pull,
+    Opcode.VAR_245: op_sound_effect,
 }
 
 

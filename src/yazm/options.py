@@ -7,6 +7,7 @@ class Options:
     save_name: str
     log_instructions: bool
     rand_seed: list
+    highlight_objects: bool = True
 
     @classmethod
     def default(cls):
