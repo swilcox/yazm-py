@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+
 from .enums import StatusLineType
 from .zdata import ZData
 
@@ -35,8 +36,9 @@ class Flag2:
     use_menus: bool = False
 
 
-class Header(object):
+class Header:
     """Z Header Class. Stores information about the current Z Story file and status."""
+
     def __init__(self, zdata: ZData):
         self.version = zdata[0x0]
         self.release = zdata.u16(0x2)
@@ -48,10 +50,16 @@ class Header(object):
         self.static_memory_addr = zdata.u16(0xE)
         self.serial_number = zdata[0x12:0x18]
         self.abbrev_addr = zdata.u16(0x18)
-        self.file_length = zdata.u16(0x1A)
+        raw_file_length = zdata.u16(0x1A)
+        if self.version <= 3:
+            self.file_length = raw_file_length * 2
+        elif self.version <= 5:
+            self.file_length = raw_file_length * 4
+        else:
+            self.file_length = raw_file_length * 8
         self.checksum = zdata.u16(0x1C)
         # begin version > 3 header portion
-        self.routine_offset = zdata.u16(0x28) 
+        self.routine_offset = zdata.u16(0x28)
         self.string_offset = zdata.u16(0x2A)
 
         self.term_chars_addr = zdata.u16(0x2E)
@@ -71,35 +79,35 @@ class Header(object):
     def flag1(self):
         if self.version <= 3:
             return Flag1(
-                status_line_type=self._flag1 &       0b00000010,
-                multi_discs=self._flag1 &            0b00000100,
-                tandy_bit=self._flag1 &              0b00001000,
-                status_line=self._flag1 &            0b00010000,
-                screen_splitting=self._flag1 &       0b00100000,
-                variable_pitch_default=self._flag1 & 0b01000000,
+                status_line_type=StatusLineType(self._flag1 & 0b00000010),
+                multi_discs=bool(self._flag1 & 0b00000100),
+                tandy_bit=bool(self._flag1 & 0b00001000),
+                status_line=bool(self._flag1 & 0b00010000),
+                screen_splitting=bool(self._flag1 & 0b00100000),
+                variable_pitch_default=bool(self._flag1 & 0b01000000),
             )
         else:
             return Flag1(
-                colors_available=self._flag1 &       0b00000001,
-                picture_displaying=self._flag1 &     0b00000010,
-                bold=self._flag1 &                   0b00000100,
-                italic=self._flag1 &                 0b00001000,
-                fixed_pitch=self._flag1 &            0b00010000,
-                sound=self._flag1 &                  0b00100000,
-                variable_pitch_default=self._flag1 & 0b01000000,
-                timed_keyboard_input=self._flag1 &   0b10000000,
+                colors_available=bool(self._flag1 & 0b00000001),
+                picture_displaying=bool(self._flag1 & 0b00000010),
+                bold=bool(self._flag1 & 0b00000100),
+                italic=bool(self._flag1 & 0b00001000),
+                fixed_pitch=bool(self._flag1 & 0b00010000),
+                sound=bool(self._flag1 & 0b00100000),
+                variable_pitch_default=bool(self._flag1 & 0b01000000),
+                timed_keyboard_input=bool(self._flag1 & 0b10000000),
             )
 
     @property
     def flag2(self):
         return Flag2(
-            transcripting_on=self._flag2 &  0b000000001,
-            force_fixed_pitch=self._flag2 & 0b000000010,
-            request_redraw=self._flag2 &    0b000000100,
-            use_pictures=self._flag2 &      0b000001000,
-            use_undo=self._flag2 &          0b000010000,
-            use_mouse=self._flag2 &         0b000100000,
-            use_colors=self._flag2 &        0b001000000,
-            use_sound=self._flag2 &         0b010000000,
-            use_menus=self._flag2 &         0b100000000,
+            transcripting_on=bool(self._flag2 & 0b000000001),
+            force_fixed_pitch=bool(self._flag2 & 0b000000010),
+            request_redraw=bool(self._flag2 & 0b000000100),
+            use_pictures=bool(self._flag2 & 0b000001000),
+            use_undo=bool(self._flag2 & 0b000010000),
+            use_mouse=bool(self._flag2 & 0b000100000),
+            use_colors=bool(self._flag2 & 0b001000000),
+            use_sound_effects=bool(self._flag2 & 0b010000000),
+            use_menus=bool(self._flag2 & 0b100000000),
         )

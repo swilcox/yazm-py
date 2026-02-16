@@ -2,7 +2,7 @@ from __future__ import annotations
 
 
 class Frame:
-    def __init__(self, resume: int, store: int, locals_: list, arguments: list):
+    def __init__(self, resume: int, store: int | None, locals_: list, arguments: list):
         self.stack = []
         self.locals = []
         for i in range(len(locals_)):
@@ -11,7 +11,7 @@ class Frame:
                 self.locals[i] = arguments[i]
         self.arg_count = len(arguments)
         self.resume = resume
-        self.store = store               
+        self.store = store
 
     def empty(self):
         self.stack = []
@@ -19,12 +19,12 @@ class Frame:
         self.arg_count = 0
         self.resume = 0
         self.store = None
-    
+
     @classmethod
     def from_bytes(cls, bytes_: bytearray) -> Frame:
         resume = 0
-        resume += (bytes_[0] << 16)
-        resume += (bytes_[1] << 8)
+        resume += bytes_[0] << 16
+        resume += bytes_[1] << 8
         resume += bytes_[2]
         flags = bytes_[3]
         has_store = (flags & 0b0001_0000) == 0
@@ -44,18 +44,19 @@ class Frame:
         for offset in range(num_locals):
             word = 0
             word += bytes_[index + offset * 2] << 8
-            word += bytes_[index + offset * 2 + 1] 
+            word += bytes_[index + offset * 2 + 1]
             locals_.append(word)
-        
+
         index += num_locals * 2
         for offset in range(stack_length):
             word = 0
             word += bytes_[index + offset * 2] << 8
-            word += bytes_[index + offset * 2 + 1] 
+            word += bytes_[index + offset * 2 + 1]
             stack.append(word)
 
         new_frame = cls(resume, store, locals_, [])
         new_frame.arg_count = arg_count
+        new_frame.stack = stack
         return new_frame
 
     def read_local(self, index: int) -> int:
@@ -63,7 +64,7 @@ class Frame:
 
     def write_local(self, index: int, value: int):
         self.locals[index] = value
-    
+
     def stack_push(self, value: int):
         self.stack.append(value)
 
@@ -72,7 +73,7 @@ class Frame:
 
     def stack_peek(self) -> int:
         return self.stack[-1]
-    
+
     def to_string(self) -> str:
         return "--- to do ---"
 
@@ -82,8 +83,8 @@ class Frame:
         bytes_.append((self.resume & 0x00_FF00) >> 8)
         bytes_.append(self.resume & 0x00_00FF)
         flags = len(self.locals)
-        if self.store:
-            flags += 0b0001_0000
+        if self.store is None:
+            flags |= 0b0001_0000
         args_supplied = 0
         for bit in range(self.arg_count):
             args_supplied |= 1 << bit

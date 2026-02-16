@@ -1,6 +1,6 @@
 from __future__ import annotations
-from enum import Enum, IntFlag, IntEnum
-from typing import List
+
+from enum import Enum, IntEnum, IntFlag
 
 
 class OpForm(Enum):
@@ -24,10 +24,10 @@ class OperandType(IntFlag):
     OMITTED = 4
 
     @classmethod
-    def from_byte(cls, szbyte: int) -> List[OperandType]:
+    def from_byte(cls, szbyte: int) -> list[OperandType]:
         sizes = []
         offset = 6
-        while offset >=0 and (szbyte >> offset) & 3 != 3:
+        while offset >= 0 and (szbyte >> offset) & 3 != 3:
             size = (szbyte >> offset) & 3
             if size == 0b00:
                 sizes.append(cls.LARGE)
@@ -53,10 +53,10 @@ class OpSize(Enum):
     VAR = 0b10
 
     @classmethod
-    def from_byte(cls, szbyte: int) -> List[OpSize]:
+    def from_byte(cls, szbyte: int) -> list[OpSize]:
         sizes = []
         offset = 6
-        while offset >=0 and (szbyte >> offset) & 3 != 3:
+        while offset >= 0 and (szbyte >> offset) & 3 != 3:
             size = (szbyte >> offset) & 3
             if size == 0b00:
                 sizes.append(cls.WORD)
@@ -74,133 +74,133 @@ class StatusLineType(IntFlag):
 
 
 BASE_OPCODE_NAMES = {
-    'OP2_1': 'je',
-    'OP2_2': 'jl',
-    'OP2_3': 'jg',
-    'OP2_4': 'dec_chk',
-    'OP2_5': 'inc_chk',
-    'OP2_6': 'jin',
-    'OP2_7': 'test',
-    'OP2_8': 'or',
-    'OP2_9': 'and',
-    'OP2_10': 'test_attr',
-    'OP2_11': 'set_attr',
-    'OP2_12': 'clear_attr',
-    'OP2_13': 'store',
-    'OP2_14': 'insert_obj',
-    'OP2_15': 'loadw',
-    'OP2_16': 'loadb',
-    'OP2_17': 'get_prop',
-    'OP2_18': 'get_prop_addr',
-    'OP2_19': 'get_next_prop',
-    'OP2_20': 'add',
-    'OP2_21': 'sub',
-    'OP2_22': 'mul',
-    'OP2_23': 'dev',
-    'OP2_24': 'mod',
-    'OP2_25': 'call_2s',
-    'OP2_26': 'call_2n',
-    'OP2_27': 'set_colour',
-    'OP2_28': 'throw',
-    'OP1_128': 'jz',
-    'OP1_129': 'get_sibling',
-    'OP1_130': 'get_child',
-    'OP1_131': 'get_parent',
-    'OP1_132': 'get_prop_len',
-    'OP1_133': 'inc',
-    'OP1_134': 'dec',
-    'OP1_135': 'print_addr',
-    'OP1_136': 'call_1s',
-    'OP1_137': 'remove_obj',
-    'OP1_138': 'print_obj',
-    'OP1_139': 'ret',
-    'OP1_140': 'jump',
-    'OP1_141': 'print_paddr',
-    'OP1_142': 'load',
-    'OP1_143': 'not',
-    'OP0_176': 'rtrue',
-    'OP0_177': 'rfalse',
-    'OP0_178': 'print',
-    'OP0_179': 'print_ret',
-    'OP0_180': 'nop',
-    'OP0_181': 'save',
-    'OP0_182': 'restore',
-    'OP0_183': 'restart',
-    'OP0_184': 'ret_popped',
-    'OP0_185': 'pop',
-    'OP0_186': 'quit',
-    'OP0_187': 'new_line',
-    'OP0_188': 'show_status',
-    'OP0_189': 'verify',
-    'OP0_191': 'piracy',
-    'VAR_224': 'call',
-    'VAR_225': 'storew',
-    'VAR_226': 'storeb',
-    'VAR_227': 'put_prop',
-    'VAR_228': 'sread',
-    'VAR_229': 'print_char',
-    'VAR_230': 'print_num',
-    'VAR_231': 'random',
-    'VAR_232': 'push',
-    'VAR_233': 'pull',
-    'VAR_234': 'split_window',
-    'VAR_235': 'set_window',
-    'VAR_236': 'call_vs2',
-    'VAR_237': 'erase_window',
-    'VAR_238': 'erase_line',
-    'VAR_239': 'set_cursor',
-    'VAR_240': 'get_cursor',
-    'VAR_241': 'set_text_style',
-    'VAR_242': 'buffer_mode',
-    'VAR_243': 'output_stream',
-    'VAR_244': 'input_stream',
-    'VAR_245': 'sound_effect',
-    'VAR_246': 'read_char',
-    'VAR_247': 'scan_table',
-    'VAR_248': 'not',
-    'VAR_249': 'call_vn',
-    'VAR_250': 'call_vn2',
-    'VAR_251': 'tokenise',
-    'VAR_252': 'encode_text',
-    'VAR_253': 'copy_table',
-    'VAR_254': 'print_table',
-    'VAR_255': 'check_arg_count',
-    'EXT_1000': 'save',
-    'EXT_1001': 'restore',
-    'EXT_1002': 'log_shift',
-    'EXT_1003': 'art_shift',
-    'EXT_1004': 'set_font',
-    'EXT_1005': 'draw_picture',
-    'EXT_1006': 'picture_data',
-    'EXT_1007': 'erase_picture',
-    'EXT_1008': 'set_margins',
-    'EXT_1009': 'save_undo',
-    'EXT_1010': 'restore_undo',
-    'EXT_1011': 'print_unicode',
-    'EXT_1012': 'check_unicode',
-    'EXT_1013': 'set_true_color',
-    'EXT_1016': 'move_window',
-    'EXT_1017': 'window_size',
-    'EXT_1018': 'window_style',
-    'EXT_1019': 'get_wind_prop',
-    'EXT_1020': 'scroll_window',
-    'EXT_1021': 'pop_stack',
-    'EXT_1022': 'read_mouse',
-    'EXT_1023': 'mouse_window',
-    'EXT_1024': 'push_stack',
-    'EXT_1025': 'put_wind_prop',
-    'EXT_1026': 'print_form',
-    'EXT_1027': 'make_menu',
-    'EXT_1028': 'picture_table',
-    'EXT_1029': 'buffer_screen'
+    "OP2_1": "je",
+    "OP2_2": "jl",
+    "OP2_3": "jg",
+    "OP2_4": "dec_chk",
+    "OP2_5": "inc_chk",
+    "OP2_6": "jin",
+    "OP2_7": "test",
+    "OP2_8": "or",
+    "OP2_9": "and",
+    "OP2_10": "test_attr",
+    "OP2_11": "set_attr",
+    "OP2_12": "clear_attr",
+    "OP2_13": "store",
+    "OP2_14": "insert_obj",
+    "OP2_15": "loadw",
+    "OP2_16": "loadb",
+    "OP2_17": "get_prop",
+    "OP2_18": "get_prop_addr",
+    "OP2_19": "get_next_prop",
+    "OP2_20": "add",
+    "OP2_21": "sub",
+    "OP2_22": "mul",
+    "OP2_23": "dev",
+    "OP2_24": "mod",
+    "OP2_25": "call_2s",
+    "OP2_26": "call_2n",
+    "OP2_27": "set_colour",
+    "OP2_28": "throw",
+    "OP1_128": "jz",
+    "OP1_129": "get_sibling",
+    "OP1_130": "get_child",
+    "OP1_131": "get_parent",
+    "OP1_132": "get_prop_len",
+    "OP1_133": "inc",
+    "OP1_134": "dec",
+    "OP1_135": "print_addr",
+    "OP1_136": "call_1s",
+    "OP1_137": "remove_obj",
+    "OP1_138": "print_obj",
+    "OP1_139": "ret",
+    "OP1_140": "jump",
+    "OP1_141": "print_paddr",
+    "OP1_142": "load",
+    "OP1_143": "not",
+    "OP0_176": "rtrue",
+    "OP0_177": "rfalse",
+    "OP0_178": "print",
+    "OP0_179": "print_ret",
+    "OP0_180": "nop",
+    "OP0_181": "save",
+    "OP0_182": "restore",
+    "OP0_183": "restart",
+    "OP0_184": "ret_popped",
+    "OP0_185": "pop",
+    "OP0_186": "quit",
+    "OP0_187": "new_line",
+    "OP0_188": "show_status",
+    "OP0_189": "verify",
+    "OP0_191": "piracy",
+    "VAR_224": "call",
+    "VAR_225": "storew",
+    "VAR_226": "storeb",
+    "VAR_227": "put_prop",
+    "VAR_228": "sread",
+    "VAR_229": "print_char",
+    "VAR_230": "print_num",
+    "VAR_231": "random",
+    "VAR_232": "push",
+    "VAR_233": "pull",
+    "VAR_234": "split_window",
+    "VAR_235": "set_window",
+    "VAR_236": "call_vs2",
+    "VAR_237": "erase_window",
+    "VAR_238": "erase_line",
+    "VAR_239": "set_cursor",
+    "VAR_240": "get_cursor",
+    "VAR_241": "set_text_style",
+    "VAR_242": "buffer_mode",
+    "VAR_243": "output_stream",
+    "VAR_244": "input_stream",
+    "VAR_245": "sound_effect",
+    "VAR_246": "read_char",
+    "VAR_247": "scan_table",
+    "VAR_248": "not",
+    "VAR_249": "call_vn",
+    "VAR_250": "call_vn2",
+    "VAR_251": "tokenise",
+    "VAR_252": "encode_text",
+    "VAR_253": "copy_table",
+    "VAR_254": "print_table",
+    "VAR_255": "check_arg_count",
+    "EXT_1000": "save",
+    "EXT_1001": "restore",
+    "EXT_1002": "log_shift",
+    "EXT_1003": "art_shift",
+    "EXT_1004": "set_font",
+    "EXT_1005": "draw_picture",
+    "EXT_1006": "picture_data",
+    "EXT_1007": "erase_picture",
+    "EXT_1008": "set_margins",
+    "EXT_1009": "save_undo",
+    "EXT_1010": "restore_undo",
+    "EXT_1011": "print_unicode",
+    "EXT_1012": "check_unicode",
+    "EXT_1013": "set_true_color",
+    "EXT_1016": "move_window",
+    "EXT_1017": "window_size",
+    "EXT_1018": "window_style",
+    "EXT_1019": "get_wind_prop",
+    "EXT_1020": "scroll_window",
+    "EXT_1021": "pop_stack",
+    "EXT_1022": "read_mouse",
+    "EXT_1023": "mouse_window",
+    "EXT_1024": "push_stack",
+    "EXT_1025": "put_wind_prop",
+    "EXT_1026": "print_form",
+    "EXT_1027": "make_menu",
+    "EXT_1028": "picture_table",
+    "EXT_1029": "buffer_screen",
 }
 
 
 V5_OVERRIDES = {
-    'OP1_143': 'call_1n',
-    'OP0_185': 'catch',
-    'VAR_224': 'call_vs',
-    'VAR_228': 'aread',
+    "OP1_143": "call_1n",
+    "OP0_185": "catch",
+    "VAR_224": "call_vs",
+    "VAR_228": "aread",
 }
 
 
@@ -211,15 +211,15 @@ V5_OPCODE_NAMES.update(V5_OVERRIDES)
 
 class Opcode(IntEnum):
     # Two-operand opcodes (2OP)
-    OP2_1  = 1
-    OP2_2  = 2
-    OP2_3  = 3
-    OP2_4  = 4
-    OP2_5  = 5
-    OP2_6  = 6
-    OP2_7  = 7
-    OP2_8  = 8
-    OP2_9  = 9
+    OP2_1 = 1
+    OP2_2 = 2
+    OP2_3 = 3
+    OP2_4 = 4
+    OP2_5 = 5
+    OP2_6 = 6
+    OP2_7 = 7
+    OP2_8 = 8
+    OP2_9 = 9
     OP2_10 = 10
     OP2_11 = 11
     OP2_12 = 12

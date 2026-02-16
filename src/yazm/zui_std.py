@@ -27,10 +27,13 @@ def _get_terminal_width() -> int:
 
 
 class ZUIStd:
-    def __init__(self):
+    def __init__(self, plain: bool = False):
         self._last_output = ""
+        self.plain = plain
 
     def init(self):
+        if self.plain:
+            return
         w = sys.stdout.write
         w(_Ansi.CLEAR + _Ansi.HOME)
         # blank status bar on row 1
@@ -44,35 +47,38 @@ class ZUIStd:
         sys.stdout.flush()
 
     def zoutput(self, text: str):
-        print(text, end='', flush=True)
+        print(text, end="", flush=True)
         if text:
             self._last_output = text
 
-    def zoutput_object(self, text: str, highlight: bool = False,
-                        is_location: bool = False):
+    def zoutput_object(self, text: str, highlight: bool = False, is_location: bool = False):
         if highlight:
             if is_location:
-                print(_Ansi.BOLD_YELLOW + text + _Ansi.RESET, end='', flush=True)
+                print(_Ansi.BOLD_YELLOW + text + _Ansi.RESET, end="", flush=True)
             else:
-                print(_Ansi.BOLD_CYAN + text + _Ansi.RESET, end='', flush=True)
+                print(_Ansi.BOLD_CYAN + text + _Ansi.RESET, end="", flush=True)
         else:
-            print(text, end='', flush=True)
+            print(text, end="", flush=True)
         if text:
             self._last_output = text
 
     def zinput(self) -> str:
         try:
-            # Suppress styled prompt if game already printed ">"
-            if self._last_output.rstrip().endswith(">"):
+            if self.plain:
+                result = input()
+            elif self._last_output.rstrip().endswith(">"):
+                # Suppress styled prompt if game already printed ">"
                 result = input()
             else:
                 result = input(_Ansi.BOLD + "> " + _Ansi.RESET)
             self._last_output = ""
             return result
         except (EOFError, KeyboardInterrupt):
-            raise SystemExit(0)
+            raise SystemExit(0) from None
 
     def set_status_bar(self, left: str, right: str):
+        if self.plain:
+            return
         width = _get_terminal_width()
         # Build bar content: left-justified location, right-justified score
         padding = width - len(left) - len(right)
@@ -89,11 +95,15 @@ class ZUIStd:
         sys.stdout.flush()
 
     def clear(self):
+        if self.plain:
+            return
         w = sys.stdout.write
         w(_Ansi.CLEAR + _Ansi.HOME)
         w(_Ansi.move_to(2))
         sys.stdout.flush()
 
     def reset(self):
+        if self.plain:
+            return
         sys.stdout.write(_Ansi.RESET)
         sys.stdout.flush()

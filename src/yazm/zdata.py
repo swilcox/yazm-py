@@ -8,11 +8,11 @@ class ZData(bytearray):
         def __init__(self, zd: ZData, addr: int):
             self.current_addr = addr
             self.zd = zd
-        
+
         def byte(self, value: int):
             self.zd.write_u8(self.current_addr, value)
             self.current_addr += 1
-        
+
         def word(self, value: int):
             self.zd.write_u16(self.current_addr, value)
             self.current_addr += 2
@@ -30,7 +30,7 @@ class ZData(bytearray):
             result = self.zd.u8(self.current_addr)
             self.current_addr += 1
             return result
-        
+
         def word(self) -> int:
             result = self.zd.u16(self.current_addr)
             self.current_addr += 2
@@ -42,19 +42,19 @@ class ZData(bytearray):
 
     def u16(self, index: int) -> int:
         return self[index] << 8 | self[index + 1]
-    
+
     def u8(self, index: int) -> int:
         return self[index]
 
     def write_u16(self, index: int, value: int):
         self[index] = (value & 0xFF00) >> 8
         self[index + 1] = value & 0x00FF
-    
+
     def write_u8(self, index: int, value: int):
         self[index] = value
 
-    def get_writer(self, addr: int) -> self.ZDataWriter:
+    def get_writer(self, addr: int) -> ZData.ZDataWriter:
         return self.ZDataWriter(self, addr)
 
-    def get_reader(self, addr: int) -> self.ZDataReader:
+    def get_reader(self, addr: int) -> ZData.ZDataReader:
         return self.ZDataReader(self, addr)

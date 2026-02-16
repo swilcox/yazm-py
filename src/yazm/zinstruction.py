@@ -1,7 +1,9 @@
 from __future__ import annotations
+
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, List
-from .enums import Opcode, OperandType, OpForm, OperandCount
+from typing import TYPE_CHECKING
+
+from .enums import Opcode, OperandCount, OperandType, OpForm
 
 if TYPE_CHECKING:
     from .zmachine import ZMachine
@@ -10,14 +12,25 @@ if TYPE_CHECKING:
 @dataclass
 class Branch:
     condition: bool
-    address: int = None
-    returns: int = None
+    address: int | None = None
+    returns: int | None = None
 
 
 class Instruction:
     """The Instruction Class for decoding and analyzing a ZMachine instruction."""
 
-    def __init__(self, addr: int, opcode: int = 0, name: str = None, operands: List[int] = None, store: int = None, branch: Branch = None, text: str = None, next_: int = 0, optypes: List[OperandType] = None):
+    def __init__(
+        self,
+        addr: int,
+        opcode: int = 0,
+        name: str | None = None,
+        operands: list[int] | None = None,
+        store: int | None = None,
+        branch: Branch | None = None,
+        text: str | None = None,
+        next_: int = 0,
+        optypes: list[OperandType] | None = None,
+    ):
         self.addr = addr
         self.opcode = opcode
         self.name = name
@@ -32,7 +45,7 @@ class Instruction:
     def _get_opcode_form(opcode: int) -> OpForm:
         if opcode == 0xBE:
             return OpForm.EXT
-        sel = (opcode & 0xc0) >> 6
+        sel = (opcode & 0xC0) >> 6
         if sel == 0b11:
             return OpForm.VAR
         elif sel == 0b10:
@@ -156,8 +169,8 @@ class Instruction:
     def does_store(cls, opcode: Opcode) -> bool:
         return opcode in (
             # 2OP
-            Opcode.OP2_8,   # or
-            Opcode.OP2_9,   # and
+            Opcode.OP2_8,  # or
+            Opcode.OP2_9,  # and
             Opcode.OP2_15,  # loadw
             Opcode.OP2_16,  # loadb
             Opcode.OP2_17,  # get_prop
@@ -170,64 +183,64 @@ class Instruction:
             Opcode.OP2_24,  # mod
             Opcode.OP2_25,  # call_2s
             # 1OP
-            Opcode.OP1_129, # get_sibling (store + branch)
-            Opcode.OP1_130, # get_child (store + branch)
-            Opcode.OP1_131, # get_parent
-            Opcode.OP1_132, # get_prop_len
-            Opcode.OP1_136, # call_1s
-            Opcode.OP1_142, # load
-            Opcode.OP1_143, # not (v1-4) / call_1n (v5+)
+            Opcode.OP1_129,  # get_sibling (store + branch)
+            Opcode.OP1_130,  # get_child (store + branch)
+            Opcode.OP1_131,  # get_parent
+            Opcode.OP1_132,  # get_prop_len
+            Opcode.OP1_136,  # call_1s
+            Opcode.OP1_142,  # load
+            Opcode.OP1_143,  # not (v1-4) / call_1n (v5+)
             # VAR
-            Opcode.VAR_224, # call / call_vs
-            Opcode.VAR_231, # random
-            Opcode.VAR_236, # call_vs2
-            Opcode.VAR_246, # read_char
-            Opcode.VAR_248, # not (v5)
+            Opcode.VAR_224,  # call / call_vs
+            Opcode.VAR_231,  # random
+            Opcode.VAR_236,  # call_vs2
+            Opcode.VAR_246,  # read_char
+            Opcode.VAR_248,  # not (v5)
             # EXT
-            Opcode.EXT_1000, # save (v5+)
-            Opcode.EXT_1001, # restore (v5+)
-            Opcode.EXT_1002, # log_shift
-            Opcode.EXT_1003, # art_shift
-            Opcode.EXT_1004, # set_font
-            Opcode.EXT_1009, # save_undo
-            Opcode.EXT_1010, # restore_undo
+            Opcode.EXT_1000,  # save (v5+)
+            Opcode.EXT_1001,  # restore (v5+)
+            Opcode.EXT_1002,  # log_shift
+            Opcode.EXT_1003,  # art_shift
+            Opcode.EXT_1004,  # set_font
+            Opcode.EXT_1009,  # save_undo
+            Opcode.EXT_1010,  # restore_undo
         )
 
     @classmethod
     def does_branch(cls, opcode: Opcode, version: int) -> bool:
         if opcode in (
-            Opcode.OP2_1,   # je
-            Opcode.OP2_2,   # jl
-            Opcode.OP2_3,   # jg
-            Opcode.OP2_4,   # dec_chk
-            Opcode.OP2_5,   # inc_chk
-            Opcode.OP2_6,   # jin
-            Opcode.OP2_7,   # test
+            Opcode.OP2_1,  # je
+            Opcode.OP2_2,  # jl
+            Opcode.OP2_3,  # jg
+            Opcode.OP2_4,  # dec_chk
+            Opcode.OP2_5,  # inc_chk
+            Opcode.OP2_6,  # jin
+            Opcode.OP2_7,  # test
             Opcode.OP2_10,  # test_attr
-            Opcode.OP1_128, # jz
-            Opcode.OP1_129, # get_sibling (store + branch)
-            Opcode.OP1_130, # get_child (store + branch)
-            Opcode.OP0_189, # verify
-            Opcode.OP0_191, # piracy
-            Opcode.VAR_247, # scan_table
-            Opcode.VAR_255, # check_arg_count
-            Opcode.EXT_1006, # picture_data
-            Opcode.EXT_1024, # push_stack
-            Opcode.EXT_1027, # make_menu
+            Opcode.OP1_128,  # jz
+            Opcode.OP1_129,  # get_sibling (store + branch)
+            Opcode.OP1_130,  # get_child (store + branch)
+            Opcode.OP0_189,  # verify
+            Opcode.OP0_191,  # piracy
+            Opcode.VAR_247,  # scan_table
+            Opcode.VAR_255,  # check_arg_count
+            Opcode.EXT_1006,  # picture_data
+            Opcode.EXT_1024,  # push_stack
+            Opcode.EXT_1027,  # make_menu
         ):
             return True
         if opcode == Opcode.OP0_181 and version < 4:  # save (v1-3)
             return True
-        if opcode == Opcode.OP0_182 and version < 4:  # restore (v1-3)
-            return True
-        return False
+        return opcode == Opcode.OP0_182 and version < 4  # restore (v1-3)
 
     @classmethod
     def does_text(cls, opcode: Opcode) -> bool:
         return opcode in (Opcode.OP0_178, Opcode.OP0_179)
 
     def __repr__(self):
-        return (f"Instruction(addr=0x{self.addr:x}, opcode={self.name}({self.opcode}), "
-                f"operands={self.operands}, optypes={self.optypes}, "
-                f"store={self.store}, branch={self.branch}, "
-                f"text={self.text!r}, next=0x{self.next_:x})")
+        return (
+            f"Instruction(addr=0x{self.addr:x}, opcode={self.name}({self.opcode}), "
+            f"operands={self.operands}, optypes={self.optypes}, "
+            f"store={self.store}, branch={self.branch}, "
+            f"text={self.text!r}, next=0x{self.next_:x})"
+        )

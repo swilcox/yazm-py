@@ -1,80 +1,132 @@
 from __future__ import annotations
+
 from typing import TYPE_CHECKING
+
 if TYPE_CHECKING:
     from .zmachine import ZMachine
 
-DEFAULT_A0 = 'abcdefghijklmnopqrstuvwxyz'
-DEFAULT_A1 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
+DEFAULT_A0 = "abcdefghijklmnopqrstuvwxyz"
+DEFAULT_A1 = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
 DEFAULT_A2 = """ \n0123456789.,!?_#'"/\\-:()"""
 DEFAULT_A2_Z1 = """ 0123456789.,!?_#'"/\\<-:()"""
 
-DEFAULT_UNICODE_TABLE = dict([
-    (155, 0xe4), (156, 0xf6), (157, 0xfc),
-    (158, 0xc4), (159, 0xd6), (160, 0xdc),
-    (161, 0xdf), (162, 0xbb), (163, 0xab),
-    (164, 0xeb), (165, 0xef), (166, 0xff),
-    (167, 0xcb), (168, 0xcf),
-    (169, 0xe1), (170, 0xe9), (171, 0xed), (172, 0xf3), (173, 0xfa), (174, 0xfd),
-    (175, 0xc1), (176, 0xc9), (177, 0xcd), (178, 0xd3), (179, 0xda), (180, 0xdd),
-    (181, 0xe0), (182, 0xe8), (183, 0xec), (184, 0xf2), (185, 0xf9),
-    (186, 0xc0), (187, 0xc8), (188, 0xcc), (189, 0xd2), (190, 0xd9),
-    (191, 0xe2), (192, 0xea), (193, 0xee), (194, 0xf4), (195, 0xfb),
-    (196, 0xc2), (197, 0xca), (198, 0xce), (199, 0xd4), (200, 0xdb),
-    (201, 0xe5), (202, 0xc5), (203, 0xf8), (204, 0xd8),
-    (205, 0xe3), (206, 0xf1), (207, 0xf5),
-    (208, 0xc3), (209, 0xd1), (210, 0xd5),
-    (211, 0xe6), (212, 0xc6), (213, 0xe7), (214, 0xc7),
-    (215, 0xfe), (216, 0xf0), (217, 0xde), (218, 0xd0),
-    (219, 0xa3),
-    (220, 0x153), (221, 0x152),
-    (222, 0xa1), (223, 0xbf)
-])
+DEFAULT_UNICODE_TABLE = dict(
+    [
+        (155, 0xE4),
+        (156, 0xF6),
+        (157, 0xFC),
+        (158, 0xC4),
+        (159, 0xD6),
+        (160, 0xDC),
+        (161, 0xDF),
+        (162, 0xBB),
+        (163, 0xAB),
+        (164, 0xEB),
+        (165, 0xEF),
+        (166, 0xFF),
+        (167, 0xCB),
+        (168, 0xCF),
+        (169, 0xE1),
+        (170, 0xE9),
+        (171, 0xED),
+        (172, 0xF3),
+        (173, 0xFA),
+        (174, 0xFD),
+        (175, 0xC1),
+        (176, 0xC9),
+        (177, 0xCD),
+        (178, 0xD3),
+        (179, 0xDA),
+        (180, 0xDD),
+        (181, 0xE0),
+        (182, 0xE8),
+        (183, 0xEC),
+        (184, 0xF2),
+        (185, 0xF9),
+        (186, 0xC0),
+        (187, 0xC8),
+        (188, 0xCC),
+        (189, 0xD2),
+        (190, 0xD9),
+        (191, 0xE2),
+        (192, 0xEA),
+        (193, 0xEE),
+        (194, 0xF4),
+        (195, 0xFB),
+        (196, 0xC2),
+        (197, 0xCA),
+        (198, 0xCE),
+        (199, 0xD4),
+        (200, 0xDB),
+        (201, 0xE5),
+        (202, 0xC5),
+        (203, 0xF8),
+        (204, 0xD8),
+        (205, 0xE3),
+        (206, 0xF1),
+        (207, 0xF5),
+        (208, 0xC3),
+        (209, 0xD1),
+        (210, 0xD5),
+        (211, 0xE6),
+        (212, 0xC6),
+        (213, 0xE7),
+        (214, 0xC7),
+        (215, 0xFE),
+        (216, 0xF0),
+        (217, 0xDE),
+        (218, 0xD0),
+        (219, 0xA3),
+        (220, 0x153),
+        (221, 0x152),
+        (222, 0xA1),
+        (223, 0xBF),
+    ]
+)
 
 
-def zscii_to_ascii(zm: ZMachine, chrs: bytes) -> str:
+def zscii_to_ascii(zm: ZMachine, chrs: bytes | list[int]) -> str:
     """convert zscii characters to an ascii string"""
     result = []
     for c in chrs:
         if c == 0:
             # 0 == no effect in zscii (S 3.8.2.1)
             continue
-        if c == ord('\r'):
-            result.append('\n')
+        if c == ord("\r"):
+            result.append("\n")
         elif c >= 32 and c <= 126:
             result.append(chr(c))
         elif c >= 155 and c <= 251:
             if zm.header.unicode_tab_addr:
                 unitable_len = zm.memory[zm.header.unicode_tab_addr]
-                if (c - 155) < len(unitable_len):
+                if (c - 155) < unitable_len:
                     result.append(chr(zm.memory.u16(zm.header.unicode_tab_addr + (c - 155))))
                 else:
                     # TODO: note/log this as an error!
-                    result.append('?')
+                    result.append("?")
             else:
                 if c in DEFAULT_UNICODE_TABLE:
                     result.append(chr(DEFAULT_UNICODE_TABLE[c]))
                 else:
                     # TODO: note/log this as an error!
-                    result.append('?')
+                    result.append("?")
         elif (c >= 0 and c <= 12) or (c >= 14 and c <= 31) or (c >= 127 and c <= 154) or (c >= 252):
             # TODO: note/log this as an error!
             pass
-    return ''.join(result)
+    return "".join(result)
 
 
 def unpack_string(zm, packed_text):
 
     split_text = []
     for word in packed_text:
-        split_text += [word >> 10 & 0x1f,
-                       word >> 5 & 0x1f,
-                       word & 0x1f]
+        split_text += [word >> 10 & 0x1F, word >> 5 & 0x1F, word & 0x1F]
 
     if zm.version >= 5 and zm.header.alpha_tab_addr:
         base = zm.header.alpha_tab_addr
-        A0 = ''.join(map(chr, list(zm.memory[base + 0 * 26 : base + 1 * 26])))
-        A1 = ''.join(map(chr, list(zm.memory[base + 1 * 26 : base + 2 * 26])))
-        A2 = ''.join(map(chr, list(zm.memory[base + 2 * 26 : base + 3 * 26])))
+        A0 = "".join(map(chr, list(zm.memory[base + 0 * 26 : base + 1 * 26])))
+        A1 = "".join(map(chr, list(zm.memory[base + 1 * 26 : base + 2 * 26])))
+        A2 = "".join(map(chr, list(zm.memory[base + 2 * 26 : base + 3 * 26])))
     else:
         A0 = DEFAULT_A0
         A1 = DEFAULT_A1
@@ -84,10 +136,10 @@ def unpack_string(zm, packed_text):
         A2 = DEFAULT_A2_Z1
 
     shift_table = {
-            2: {A0:A1, A1:A2, A2:A0},
-            3: {A0:A2, A1:A0, A2:A1},
-            4: {A0:A1, A1:A2, A2:A0},
-            5: {A0:A2, A1:A0, A2:A1},
+        2: {A0: A1, A1: A2, A2: A0},
+        3: {A0: A2, A1: A0, A2: A1},
+        4: {A0: A1, A1: A2, A2: A0},
+        5: {A0: A2, A1: A0, A2: A1},
     }
 
     text = []
@@ -96,32 +148,32 @@ def unpack_string(zm, packed_text):
     temp_shift = 0
     abbrev_shift = 0
     current_10bit = 0
-    mode = 'NONE'
+    mode = "NONE"
     for char in split_text:
         if abbrev_shift > 0:
             table_addr = zm.header.abbrev_addr
             entry_addr = table_addr + 2 * (32 * (abbrev_shift - 1) + char)
             word_addr = zm.memory.u16(entry_addr)
-            packed_string = zm.read_packed_string(word_addr*2)
+            packed_string = zm.read_packed_string(word_addr * 2)
             text += unpack_string(zm, packed_string)
             abbrev_shift = 0
-        elif mode == '10BIT_HIGH':
-            mode = '10BIT_LOW'
+        elif mode == "10BIT_HIGH":
+            mode = "10BIT_LOW"
             current_10bit = char << 5
-        elif mode == '10BIT_LOW':
-            mode = 'NONE'
+        elif mode == "10BIT_LOW":
+            mode = "NONE"
             current_10bit |= char
             text += zscii_to_ascii(zm, [current_10bit])
         elif char == 0:
-            text.append(' ')
-        elif char == 6 and current_alphabet == A2: # override any custom alpha with escape seq start
-            mode = '10BIT_HIGH'
-        elif zm.version > 1 and char == 7 and current_alphabet == A2: # override any custom alpha with newline
-            text.append('\n')
+            text.append(" ")
+        elif char == 6 and current_alphabet == A2:  # override any custom alpha with escape seq start
+            mode = "10BIT_HIGH"
+        elif zm.version > 1 and char == 7 and current_alphabet == A2:  # override any custom alpha with newline
+            text.append("\n")
         elif zm.version < 3:
             if char == 1:
                 if zm.version == 1:
-                    text.append('\n')
+                    text.append("\n")
                 else:
                     abbrev_shift = char
             elif char in [2, 3, 4, 5]:
@@ -130,7 +182,7 @@ def unpack_string(zm, packed_text):
                 if char in [2, 3]:
                     temp_shift = 1
                 else:
-                    temp_shift = 0 # don't unshift when shift locking, even if preceded by temp_shift
+                    temp_shift = 0  # don't unshift when shift locking, even if preceded by temp_shift
             else:
                 text.append(current_alphabet[char - 6])
         else:
@@ -151,8 +203,7 @@ def unpack_string(zm, packed_text):
         elif temp_shift > 0:
             temp_shift += 1
 
-    return ''.join(text)
-
+    return "".join(text)
 
 
 # def make_dict_string(zm, text):

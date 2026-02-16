@@ -1,1 +1,1 @@
-from .zmachine import ZMachine
+from .zmachine import ZMachine as ZMachine

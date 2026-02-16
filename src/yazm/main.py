@@ -1,4 +1,5 @@
 import argparse
+
 from .zmachine import ZMachine
 
 
@@ -10,13 +11,24 @@ def main():
         action="store_true",
         help="disable bold cyan highlighting of object names",
     )
+    parser.add_argument(
+        "--plain",
+        action="store_true",
+        help="disable all ANSI formatting for clean piped/diffable output",
+    )
     args = parser.parse_args()
 
-    with open(args.story_file, 'rb') as f:
+    with open(args.story_file, "rb") as f:
         data = f.read()
     zm = ZMachine(data)
-    zm.options.highlight_objects = not args.no_highlight
-    zm.ui.init()
+    if args.plain:
+        from .zui_std import ZUIStd
+
+        zm.ui = ZUIStd(plain=True)
+        zm.options.highlight_objects = False
+    else:
+        zm.options.highlight_objects = not args.no_highlight
+        zm.ui.init()
     try:
         zm.run()
     finally:

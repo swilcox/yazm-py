@@ -1,21 +1,21 @@
 from __future__ import annotations
+
+import sys
 from dataclasses import dataclass
 from random import Random
-from typing import List
-import sys
 
-from .enums import StatusLineType, OperandType
+from . import zscii
+from .enums import OperandType, StatusLineType
 from .frame import Frame
 from .options import Options
 from .zdata import ZData
+from .zdebug import ZDebugger
 from .zheader import Header
 from .zinstruction import Branch, Instruction
-from .zdebug import ZDebugger
 from .zui_std import ZUIStd
-from . import zscii
 
 
-class ZObject(object):
+class ZObject:
     def __init__(self, number, zm: ZMachine):
         self.number = number
         self.name = zm.get_object_name(number) if number else "(Null Object)"
@@ -34,7 +34,7 @@ class ZObject(object):
             out += f"{indent}{_tree_chr}── {self.name} ({self.number})\n"
             next_ += "    " if is_last else "|   "
         depth += 1
-        for (i, child) in enumerate(self.children):
+        for i, child in enumerate(self.children):
             is_last_child = i == len(self.children) - 1
             out += child.print_tree(next_, depth, is_last_child)
         return out
@@ -48,11 +48,12 @@ class ZObjectProperty:
     next_: int = 0
 
 
-class ZMachine(object):
+class ZMachine:
     """ZMachine Class"""
 
     def __init__(self, raw_data: bytes):
         self.memory = ZData(raw_data)
+        self.original_memory = ZData(raw_data)
         self.initial_pc = self.header.pc
         self.pc = self.header.pc
         self.version = self.header.version
@@ -62,8 +63,8 @@ class ZMachine(object):
         self.debugger = ZDebugger(self)
         self.ui = ZUIStd()
         self.current_state = None
-        self.save_name = ''
-        self.save_dir = ''
+        self.save_name = ""
+        self.save_dir = ""
         self.original_dynamic = bytearray([])
         self.options = Options.default()
         self.undos = []
@@ -75,16 +76,16 @@ class ZMachine(object):
         self.dictionary = {}
         self.running = False
         self.populate_dictionary()
-        
+
     @property
     def header(self) -> Header:
         return Header(self.memory)
 
     def calculate_checksum(self):
-        """calculates the checksum"""
+        """calculates the checksum against the original file data"""
         sum = 0
         for i in range(0x40, self.header.file_length):
-            sum += self.memory.u8(i)
+            sum += self.original_memory.u8(i)
         return sum % 0x1_0000
 
     def get_object_addr(self, obj_id: int) -> int:
@@ -93,7 +94,7 @@ class ZMachine(object):
             return self.header.obj_table_addr + ((obj_id - 1) * self.obj_size)
         else:
             return self.header.obj_table_addr
-    
+
     def get_object_prop_table_addr(self, obj_id: int) -> int:
         """get the zmachine memory address for an object's properties"""
         return self.memory.u16(self.get_object_addr(obj_id) + self.attr_width + self._prop_offset)
@@ -117,7 +118,7 @@ class ZMachine(object):
         parent = self.get_parent(obj_id)
         if parent == 0:
             return
-        
+
         parents_first_child = self.get_child(parent)
         younger_sibling = self.get_sibling(obj_id)
 
@@ -127,6 +128,7 @@ class ZMachine(object):
                 return prev
             else:
                 return get_older(this, obj_id, next_)
+
         if obj_id == parents_first_child:
             self.set_child(parent, younger_sibling)
         else:
@@ -142,16 +144,16 @@ class ZMachine(object):
         self.remove_obj(obj_id)
         self.set_parent(obj_id, destination)
         self.set_child(destination, obj_id)
-        self.set_sibling(obj_id, parents_first_child) 
+        self.set_sibling(obj_id, parents_first_child)
 
-    def find_object(self, name: str) -> int:
+    def find_object(self, name: str) -> int | None:
         for i in range(1, self.get_total_object_count() + 1):
             if self.get_object_name(i).lower() == name.lower():
                 return i
         return None
 
-    def find_yourself(self) -> int:
-        return self.find_object('cretin') or self.find_object('you') or self.find_object('yourself')
+    def find_yourself(self) -> int | None:
+        return self.find_object("cretin") or self.find_object("you") or self.find_object("yourself")
 
     def test_attr(self, obj_id: int, attr: int) -> int:
         if attr > self.attr_width * 8:
@@ -178,7 +180,7 @@ class ZMachine(object):
         self.memory.write_u8(addr, byte & ~(128 >> bit))
 
     def get_default_prop(self, property_number: int) -> int:
-        word_index = (property_number - 1)
+        word_index = property_number - 1
         addr = self.header.obj_table_addr - (31 if self.version <= 3 else 63) * 2 + word_index * 2
         return self.memory.u16(addr)
 
@@ -200,18 +202,13 @@ class ZMachine(object):
             else:
                 length = 2 if header & 0b0100_0000 != 0 else 1
                 value_addr = addr + 1
-        
-        return ZObjectProperty(
-            number=num,
-            length=length,
-            addr=value_addr,
-            next_=value_addr + length
-        )
+
+        return ZObjectProperty(number=num, length=length, addr=value_addr, next_=value_addr + length)
 
     def find_prop(self, obj_id: int, property_number: int) -> ZObjectProperty:
         if property_number == 0:
             return ZObjectProperty()
-        
+
         addr = self.get_object_prop_table_addr(obj_id)
         str_length = self.memory.u8(addr) * 2
         first_addr = addr + str_length + 1
@@ -221,7 +218,7 @@ class ZMachine(object):
                 return ZObjectProperty()
             prop = self.read_object_prop(prop.next_)
         return prop
-    
+
     def get_prop_value(self, obj_id: int, property_number: int) -> int:
         prop = self.find_prop(obj_id, property_number)
         if prop.number == 0:
@@ -263,13 +260,13 @@ class ZMachine(object):
         else:
             self.memory.write_u16(prop.addr, value)
 
-    # Encrusted Web UI Only... 
-    def get_current_room(self) -> (int, str):
+    # Encrusted Web UI Only...
+    def get_current_room(self) -> tuple[int, str]:
         num = self.read_global(0)
         name = self.get_object_name(num)
         return (num, name)
 
-    def get_status(self) -> (str, str):
+    def get_status(self) -> tuple[str, str]:
         num = self.read_global(0)
         left = self.get_object_name(num)
         if self.header.flag1.status_line_type == StatusLineType.score:
@@ -291,39 +288,40 @@ class ZMachine(object):
         left, right = self.get_status()
         self.ui.set_status_bar(left, right)
 
-    def make_save_state(self, pc: int) -> bytes:
-        dynamic = self.memory[0: self.header.static_memory_addr]
-        # original = self.original_dynamic.as_slice()
-        frames = self.frames
-        chksum = self.header.checksum
-        release = self.header.release
-        serial = self.header.serial_number
-        ## QuetzalSave::make(pc, dynamic, original, frames, chksum, relase, serial)
+    def make_save_state(self, pc: int) -> bytes | None:
         # TODO: finish this!
+        # dynamic = self.memory[0 : self.header.static_memory_addr]
+        # original = self.original_dynamic.as_slice()
+        # frames = self.frames
+        # chksum = self.header.checksum
+        # release = self.header.release
+        # serial = self.header.serial_number
+        # QuetzalSave::make(pc, dynamic, original, frames, chksum, release, serial)
+        pass
 
     def restore_state(self, data: ZData):
         ## save = QuetzalSave::from_bytes(data, self.original_dynamic)
-        #if save.checksum != self.header.checksum:
+        # if save.checksum != self.header.checksum:
         #    raise Exception('Invalid Checksum!')
-        #if self.static_memory_addr < len(save.memory):
+        # if self.static_memory_addr < len(save.memory):
         #    raise Exception('Invalid save, memory is too long!')
-        #self.pc = save.pc
-        #self.frames = save.frames
-        #self.memory.write(0, save.memory.as_slice())
+        # self.pc = save.pc
+        # self.frames = save.frames
+        # self.memory.write(0, save.memory.as_slice())
         ...
-        #TODO: implement
-        
+        # TODO: implement
+
     def undo(self) -> bool:
         ...
-        return False        
-        #TODO
+        return False
+        # TODO
 
     def redo(self) -> bool:
         ...
         return False
-        #TODO
+        # TODO
 
-    def get_arguments(self, operands, optypes: List[OperandType]) -> list:
+    def get_arguments(self, operands, optypes: list[OperandType]) -> list:
         arguments = []
         for i, op in enumerate(operands):
             if optypes[i] == OperandType.VARIABLE:
@@ -338,12 +336,14 @@ class ZMachine(object):
         if frame.store is not None:
             self.write_variable(frame.store, value)
 
-    def process_branch(self, branch: Branch, next_: int, result: bool):
+    def process_branch(self, branch: Branch | None, next_: int, result: bool):
+        assert branch is not None
         do_branch = (result and branch.condition) or (not result and not branch.condition)
         if do_branch:
             if branch.returns is not None:
                 self.return_from_routine(branch.returns)
             else:
+                assert branch.address is not None
                 self.pc = branch.address
         else:
             self.pc = next_
@@ -361,6 +361,7 @@ class ZMachine(object):
 
     def handle_instruction(self, instr: Instruction):
         from .ops import dispatch
+
         args = self.get_arguments(instr.operands, instr.optypes)
         dispatch(self, instr, args)
 
@@ -386,11 +387,11 @@ class ZMachine(object):
         # advance pc to next
 
     def restore(self, data: bytes):
-        #TODO
+        # TODO
         pass
 
     def load_savestate(self, data: str):
-        #TODO
+        # TODO
         pass
 
     def get_parent(self, obj_id: int) -> int:
@@ -455,7 +456,7 @@ class ZMachine(object):
                 root.children.append(ZObject(i, self))
 
         for zobject in root.children:
-            self.add_object_children(zobject)       
+            self.add_object_children(zobject)
 
         return root
 
@@ -479,9 +480,9 @@ class ZMachine(object):
             return addr * 2
         elif self.version in [4, 5, 6, 7]:
             return addr * 4
-        elif self.version == 8:
+        else:
             return addr * 8
-    
+
     def unpack_routine_addr(self, addr: int) -> int:
         x_addr = self.unpack(addr)
         if x_addr in [6, 7]:
@@ -499,7 +500,7 @@ class ZMachine(object):
             raise Exception(f"can't read global {index}")
         addr = self.header.global_variable_addr + index * 2
         return self.memory.u16(addr)
-        
+
     def write_global(self, index: int, value: int):
         if index > 240:
             raise Exception(f"can't write global {index}")
@@ -514,7 +515,7 @@ class ZMachine(object):
 
     def stack_push(self, value: int):
         self.frames[-1].stack_push(value)
-    
+
     def stack_pop(self) -> int:
         return self.frames[-1].stack_pop()
 
@@ -528,7 +529,7 @@ class ZMachine(object):
             return self.read_local(index - 1)
         elif 16 <= index <= 255:
             return self.read_global(index - 16)
-        raise Exception('unreachable variable!')
+        raise Exception("unreachable variable!")
 
     def read_indirect_variable(self, index: int) -> int:
         if index == 0:
@@ -537,7 +538,7 @@ class ZMachine(object):
             return self.read_local(index - 1)
         elif 16 <= index <= 255:
             return self.read_global(index - 16)
-        raise Exception('unreachable indirect variable')
+        raise Exception("unreachable indirect variable")
 
     def write_variable(self, index: int, value: int):
         if index == 0:
@@ -547,7 +548,7 @@ class ZMachine(object):
         elif 16 <= index <= 255:
             self.write_global(index - 16, value)
         else:
-            raise Exception('unreachable variable')
+            raise Exception("unreachable variable")
 
     def write_indirect_variable(self, index: int, value: int):
         if index == 0:
@@ -558,11 +559,11 @@ class ZMachine(object):
         elif 16 <= index <= 255:
             self.write_global(index - 16, value)
         else:
-            raise Exception('unreachable indirect variable')
+            raise Exception("unreachable indirect variable")
 
     def get_abbrev(self, index: int) -> str:
         if index > 96:
-            raise Exception(f'Bad Abbrev Index: {index}')
+            raise Exception(f"Bad Abbrev Index: {index}")
         offset = 2 * index
         word_addr = self.memory.u16(self.header.abbrev_addr + offset)
         addr = word_addr * 2
@@ -574,7 +575,7 @@ class ZMachine(object):
             length += 2
         length += 2  # include the final word
         return length
- 
+
     def populate_dictionary(self):
         addr = self.header.dict_addr
         separator_count = self.memory.u8(addr)
@@ -586,7 +587,7 @@ class ZMachine(object):
         addr += 1
         entry_count = self.memory.u16(addr)
         addr += 2
-        
+
         for n in range(0, entry_count):
             addr_ = addr + n * entry_length
             entry = self.read_zstring(addr_)
@@ -601,7 +602,7 @@ class ZMachine(object):
         input_str = text
         found = {}
         for sep in self.separators:
-            input_str = input_str.replace(chr(sep), f"  ")
+            input_str = input_str.replace(chr(sep), "  ")
         token_list = [t for t in input_str.split() if len(t.strip())]
         tokens = []
         for token in token_list:
@@ -620,7 +621,7 @@ class ZMachine(object):
             write.byte(length)
             write.byte(t_addr)
 
-    def do_call(self, instr: Instruction, addr: int, args: List[int]):
+    def do_call(self, instr: Instruction, addr: int, args: list[int]):
         if addr == 0:
             self.process_result(instr, 0)
             return
@@ -640,7 +641,7 @@ class ZMachine(object):
 
 
 if __name__ == "__main__":
-    with open(sys.argv[1], 'rb') as f:
+    with open(sys.argv[1], "rb") as f:
         data = f.read()
     zmachine = ZMachine(data)
     zmachine.run()

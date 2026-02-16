@@ -1,6 +1,8 @@
 """Opcode handlers and dispatch table for the Z-machine."""
+
 from __future__ import annotations
-from typing import TYPE_CHECKING, List
+
+from typing import TYPE_CHECKING
 
 from .enums import Opcode
 from .utils import from_u16_to_i16
@@ -17,7 +19,8 @@ def u16(value: int) -> int:
 
 # --- Control Flow ---
 
-def op_call(zm: ZMachine, instr: Instruction, args: List[int]):
+
+def op_call(zm: ZMachine, instr: Instruction, args: list[int]):
     """call routine with args"""
     if not args:
         zm.process_result(instr, 0)
@@ -25,81 +28,82 @@ def op_call(zm: ZMachine, instr: Instruction, args: List[int]):
     zm.do_call(instr, args[0], args[1:])
 
 
-def op_ret(zm: ZMachine, instr: Instruction, args: List[int]):
+def op_ret(zm: ZMachine, instr: Instruction, args: list[int]):
     """return value from routine"""
     zm.return_from_routine(args[0])
 
 
-def op_rtrue(zm: ZMachine, instr: Instruction, args: List[int]):
+def op_rtrue(zm: ZMachine, instr: Instruction, args: list[int]):
     """return true (1)"""
     zm.return_from_routine(1)
 
 
-def op_rfalse(zm: ZMachine, instr: Instruction, args: List[int]):
+def op_rfalse(zm: ZMachine, instr: Instruction, args: list[int]):
     """return false (0)"""
     zm.return_from_routine(0)
 
 
-def op_ret_popped(zm: ZMachine, instr: Instruction, args: List[int]):
+def op_ret_popped(zm: ZMachine, instr: Instruction, args: list[int]):
     """return top of stack"""
     zm.return_from_routine(zm.stack_pop())
 
 
-def op_jump(zm: ZMachine, instr: Instruction, args: List[int]):
+def op_jump(zm: ZMachine, instr: Instruction, args: list[int]):
     """unconditional jump"""
     offset = from_u16_to_i16(args[0])
     zm.pc = instr.next_ + offset - 2
 
 
-def op_quit(zm: ZMachine, instr: Instruction, args: List[int]):
+def op_quit(zm: ZMachine, instr: Instruction, args: list[int]):
     """quit the game"""
     zm.running = False
 
 
-def op_nop(zm: ZMachine, instr: Instruction, args: List[int]):
+def op_nop(zm: ZMachine, instr: Instruction, args: list[int]):
     """no operation"""
     zm.pc = instr.next_
 
 
 # --- Branch ---
 
-def op_je(zm: ZMachine, instr: Instruction, args: List[int]):
+
+def op_je(zm: ZMachine, instr: Instruction, args: list[int]):
     """jump if equal (first arg equals any subsequent)"""
     result = args[0] in args[1:]
     zm.process_branch(instr.branch, instr.next_, result)
 
 
-def op_jz(zm: ZMachine, instr: Instruction, args: List[int]):
+def op_jz(zm: ZMachine, instr: Instruction, args: list[int]):
     """jump if zero"""
     result = args[0] == 0
     zm.process_branch(instr.branch, instr.next_, result)
 
 
-def op_jl(zm: ZMachine, instr: Instruction, args: List[int]):
+def op_jl(zm: ZMachine, instr: Instruction, args: list[int]):
     """jump if less than (signed)"""
     result = from_u16_to_i16(args[0]) < from_u16_to_i16(args[1])
     zm.process_branch(instr.branch, instr.next_, result)
 
 
-def op_jg(zm: ZMachine, instr: Instruction, args: List[int]):
+def op_jg(zm: ZMachine, instr: Instruction, args: list[int]):
     """jump if greater than (signed)"""
     result = from_u16_to_i16(args[0]) > from_u16_to_i16(args[1])
     zm.process_branch(instr.branch, instr.next_, result)
 
 
-def op_jin(zm: ZMachine, instr: Instruction, args: List[int]):
+def op_jin(zm: ZMachine, instr: Instruction, args: list[int]):
     """jump if parent of obj1 is obj2"""
     result = zm.get_parent(args[0]) == args[1]
     zm.process_branch(instr.branch, instr.next_, result)
 
 
-def op_test(zm: ZMachine, instr: Instruction, args: List[int]):
+def op_test(zm: ZMachine, instr: Instruction, args: list[int]):
     """jump if all flags in bitmap are set"""
     result = (args[0] & args[1]) == args[1]
     zm.process_branch(instr.branch, instr.next_, result)
 
 
-def op_test_attr(zm: ZMachine, instr: Instruction, args: List[int]):
+def op_test_attr(zm: ZMachine, instr: Instruction, args: list[int]):
     """jump if object has attribute"""
     result = zm.test_attr(args[0], args[1]) != 0
     zm.process_branch(instr.branch, instr.next_, result)
@@ -107,41 +111,42 @@ def op_test_attr(zm: ZMachine, instr: Instruction, args: List[int]):
 
 # --- Memory ---
 
-def op_loadw(zm: ZMachine, instr: Instruction, args: List[int]):
+
+def op_loadw(zm: ZMachine, instr: Instruction, args: list[int]):
     """load word from array"""
     addr = u16(args[0] + 2 * from_u16_to_i16(args[1]))
     value = zm.memory.u16(addr)
     zm.process_result(instr, value)
 
 
-def op_loadb(zm: ZMachine, instr: Instruction, args: List[int]):
+def op_loadb(zm: ZMachine, instr: Instruction, args: list[int]):
     """load byte from array"""
     addr = u16(args[0] + from_u16_to_i16(args[1]))
     value = zm.memory.u8(addr)
     zm.process_result(instr, value)
 
 
-def op_storew(zm: ZMachine, instr: Instruction, args: List[int]):
+def op_storew(zm: ZMachine, instr: Instruction, args: list[int]):
     """store word to array"""
     addr = u16(args[0] + 2 * from_u16_to_i16(args[1]))
     zm.memory.write_u16(addr, args[2])
     zm.pc = instr.next_
 
 
-def op_storeb(zm: ZMachine, instr: Instruction, args: List[int]):
+def op_storeb(zm: ZMachine, instr: Instruction, args: list[int]):
     """store byte to array"""
     addr = u16(args[0] + from_u16_to_i16(args[1]))
     zm.memory.write_u8(addr, args[2] & 0xFF)
     zm.pc = instr.next_
 
 
-def op_store(zm: ZMachine, instr: Instruction, args: List[int]):
+def op_store(zm: ZMachine, instr: Instruction, args: list[int]):
     """store value to variable (indirect)"""
     zm.write_indirect_variable(args[0], args[1])
     zm.pc = instr.next_
 
 
-def op_load(zm: ZMachine, instr: Instruction, args: List[int]):
+def op_load(zm: ZMachine, instr: Instruction, args: list[int]):
     """load value from variable (indirect)"""
     value = zm.read_indirect_variable(args[0])
     zm.process_result(instr, value)
@@ -149,25 +154,26 @@ def op_load(zm: ZMachine, instr: Instruction, args: List[int]):
 
 # --- Arithmetic ---
 
-def op_add(zm: ZMachine, instr: Instruction, args: List[int]):
+
+def op_add(zm: ZMachine, instr: Instruction, args: list[int]):
     """signed addition"""
     result = from_u16_to_i16(args[0]) + from_u16_to_i16(args[1])
     zm.process_result(instr, u16(result))
 
 
-def op_sub(zm: ZMachine, instr: Instruction, args: List[int]):
+def op_sub(zm: ZMachine, instr: Instruction, args: list[int]):
     """signed subtraction"""
     result = from_u16_to_i16(args[0]) - from_u16_to_i16(args[1])
     zm.process_result(instr, u16(result))
 
 
-def op_mul(zm: ZMachine, instr: Instruction, args: List[int]):
+def op_mul(zm: ZMachine, instr: Instruction, args: list[int]):
     """signed multiplication"""
     result = from_u16_to_i16(args[0]) * from_u16_to_i16(args[1])
     zm.process_result(instr, u16(result))
 
 
-def op_div(zm: ZMachine, instr: Instruction, args: List[int]):
+def op_div(zm: ZMachine, instr: Instruction, args: list[int]):
     """signed division"""
     a = from_u16_to_i16(args[0])
     b = from_u16_to_i16(args[1])
@@ -177,7 +183,7 @@ def op_div(zm: ZMachine, instr: Instruction, args: List[int]):
     zm.process_result(instr, u16(result))
 
 
-def op_mod(zm: ZMachine, instr: Instruction, args: List[int]):
+def op_mod(zm: ZMachine, instr: Instruction, args: list[int]):
     """signed modulo"""
     a = from_u16_to_i16(args[0])
     b = from_u16_to_i16(args[1])
@@ -190,89 +196,95 @@ def op_mod(zm: ZMachine, instr: Instruction, args: List[int]):
 
 # --- Logical ---
 
-def op_and(zm: ZMachine, instr: Instruction, args: List[int]):
+
+def op_and(zm: ZMachine, instr: Instruction, args: list[int]):
     """bitwise AND"""
     zm.process_result(instr, args[0] & args[1])
 
 
-def op_or(zm: ZMachine, instr: Instruction, args: List[int]):
+def op_or(zm: ZMachine, instr: Instruction, args: list[int]):
     """bitwise OR"""
     zm.process_result(instr, args[0] | args[1])
 
 
-def op_not(zm: ZMachine, instr: Instruction, args: List[int]):
+def op_not(zm: ZMachine, instr: Instruction, args: list[int]):
     """bitwise NOT"""
     zm.process_result(instr, u16(~args[0]))
 
 
 # --- Stack ---
 
-def op_push(zm: ZMachine, instr: Instruction, args: List[int]):
+
+def op_push(zm: ZMachine, instr: Instruction, args: list[int]):
     """push value onto stack"""
     zm.stack_push(args[0])
     zm.pc = instr.next_
 
 
-def op_pull(zm: ZMachine, instr: Instruction, args: List[int]):
+def op_pull(zm: ZMachine, instr: Instruction, args: list[int]):
     """pull value from stack into variable"""
     value = zm.stack_pop()
     zm.write_indirect_variable(args[0], value)
     zm.pc = instr.next_
 
 
-def op_sound_effect(zm: ZMachine, instr: Instruction, args: List[int]):
+def op_sound_effect(zm: ZMachine, instr: Instruction, args: list[int]):
     """sound_effect — silently ignored (sound not supported)"""
     zm.pc = instr.next_
 
 
 # --- Print ---
 
-def op_print(zm: ZMachine, instr: Instruction, args: List[int]):
+
+def op_print(zm: ZMachine, instr: Instruction, args: list[int]):
     """print inline string"""
+    assert instr.text is not None
     zm.ui.zoutput(instr.text)
     zm.pc = instr.next_
 
 
-def op_print_ret(zm: ZMachine, instr: Instruction, args: List[int]):
+def op_print_ret(zm: ZMachine, instr: Instruction, args: list[int]):
     """print inline string, newline, then return true"""
+    assert instr.text is not None
     zm.ui.zoutput(instr.text + "\n")
     zm.return_from_routine(1)
 
 
-def op_new_line(zm: ZMachine, instr: Instruction, args: List[int]):
+def op_new_line(zm: ZMachine, instr: Instruction, args: list[int]):
     """print newline"""
     zm.ui.zoutput("\n")
     zm.pc = instr.next_
 
 
-def op_print_num(zm: ZMachine, instr: Instruction, args: List[int]):
+def op_print_num(zm: ZMachine, instr: Instruction, args: list[int]):
     """print signed number"""
     zm.ui.zoutput(str(from_u16_to_i16(args[0])))
     zm.pc = instr.next_
 
 
-def op_print_char(zm: ZMachine, instr: Instruction, args: List[int]):
+def op_print_char(zm: ZMachine, instr: Instruction, args: list[int]):
     """print ZSCII character"""
     from . import zscii
+
     zm.ui.zoutput(zscii.zscii_to_ascii(zm, [args[0]]))
     zm.pc = instr.next_
 
 
-def op_print_obj(zm: ZMachine, instr: Instruction, args: List[int]):
+def op_print_obj(zm: ZMachine, instr: Instruction, args: list[int]):
     """print object name"""
     name = zm.get_object_name(args[0])
-    is_location = (args[0] == zm.read_global(0))
+    is_location = args[0] == zm.read_global(0)
     zm.ui.zoutput_object(name, zm.options.highlight_objects, is_location)
     zm.pc = instr.next_
 
 
-def op_print_addr(zm: ZMachine, instr: Instruction, args: List[int]):
+def op_print_addr(zm: ZMachine, instr: Instruction, args: list[int]):
     """print string at byte address"""
     zm.ui.zoutput(zm.read_zstring(args[0]))
     zm.pc = instr.next_
 
 
-def op_print_paddr(zm: ZMachine, instr: Instruction, args: List[int]):
+def op_print_paddr(zm: ZMachine, instr: Instruction, args: list[int]):
     """print string at packed address"""
     addr = zm.unpack_print_paddr(args[0])
     zm.ui.zoutput(zm.read_zstring(addr))
@@ -281,21 +293,22 @@ def op_print_paddr(zm: ZMachine, instr: Instruction, args: List[int]):
 
 # --- Variables ---
 
-def op_inc(zm: ZMachine, instr: Instruction, args: List[int]):
+
+def op_inc(zm: ZMachine, instr: Instruction, args: list[int]):
     """increment variable"""
     value = from_u16_to_i16(zm.read_indirect_variable(args[0]))
     zm.write_indirect_variable(args[0], u16(value + 1))
     zm.pc = instr.next_
 
 
-def op_dec(zm: ZMachine, instr: Instruction, args: List[int]):
+def op_dec(zm: ZMachine, instr: Instruction, args: list[int]):
     """decrement variable"""
     value = from_u16_to_i16(zm.read_indirect_variable(args[0]))
     zm.write_indirect_variable(args[0], u16(value - 1))
     zm.pc = instr.next_
 
 
-def op_inc_chk(zm: ZMachine, instr: Instruction, args: List[int]):
+def op_inc_chk(zm: ZMachine, instr: Instruction, args: list[int]):
     """increment variable and branch if > value"""
     value = from_u16_to_i16(zm.read_indirect_variable(args[0]))
     value += 1
@@ -304,7 +317,7 @@ def op_inc_chk(zm: ZMachine, instr: Instruction, args: List[int]):
     zm.process_branch(instr.branch, instr.next_, result)
 
 
-def op_dec_chk(zm: ZMachine, instr: Instruction, args: List[int]):
+def op_dec_chk(zm: ZMachine, instr: Instruction, args: list[int]):
     """decrement variable and branch if < value"""
     value = from_u16_to_i16(zm.read_indirect_variable(args[0]))
     value -= 1
@@ -315,72 +328,76 @@ def op_dec_chk(zm: ZMachine, instr: Instruction, args: List[int]):
 
 # --- Objects ---
 
-def op_set_attr(zm: ZMachine, instr: Instruction, args: List[int]):
+
+def op_set_attr(zm: ZMachine, instr: Instruction, args: list[int]):
     """set object attribute"""
     zm.set_attr(args[0], args[1])
     zm.pc = instr.next_
 
 
-def op_clear_attr(zm: ZMachine, instr: Instruction, args: List[int]):
+def op_clear_attr(zm: ZMachine, instr: Instruction, args: list[int]):
     """clear object attribute"""
     zm.clear_attr(args[0], args[1])
     zm.pc = instr.next_
 
 
-def op_insert_obj(zm: ZMachine, instr: Instruction, args: List[int]):
+def op_insert_obj(zm: ZMachine, instr: Instruction, args: list[int]):
     """insert object into destination"""
     zm.insert_obj(args[0], args[1])
     zm.pc = instr.next_
 
 
-def op_remove_obj(zm: ZMachine, instr: Instruction, args: List[int]):
+def op_remove_obj(zm: ZMachine, instr: Instruction, args: list[int]):
     """remove object from parent"""
     zm.remove_obj(args[0])
     zm.pc = instr.next_
 
 
-def op_get_child(zm: ZMachine, instr: Instruction, args: List[int]):
+def op_get_child(zm: ZMachine, instr: Instruction, args: list[int]):
     """get first child of object (store + branch)"""
+    assert instr.store is not None
     child = zm.get_child(args[0])
     zm.write_variable(instr.store, child)
     zm.process_branch(instr.branch, instr.next_, child != 0)
 
 
-def op_get_sibling(zm: ZMachine, instr: Instruction, args: List[int]):
+def op_get_sibling(zm: ZMachine, instr: Instruction, args: list[int]):
     """get sibling of object (store + branch)"""
+    assert instr.store is not None
     sibling = zm.get_sibling(args[0])
     zm.write_variable(instr.store, sibling)
     zm.process_branch(instr.branch, instr.next_, sibling != 0)
 
 
-def op_get_parent(zm: ZMachine, instr: Instruction, args: List[int]):
+def op_get_parent(zm: ZMachine, instr: Instruction, args: list[int]):
     """get parent of object"""
     zm.process_result(instr, zm.get_parent(args[0]))
 
 
 # --- Properties ---
 
-def op_get_prop(zm: ZMachine, instr: Instruction, args: List[int]):
+
+def op_get_prop(zm: ZMachine, instr: Instruction, args: list[int]):
     """get property value"""
     zm.process_result(instr, zm.get_prop_value(args[0], args[1]))
 
 
-def op_get_prop_addr(zm: ZMachine, instr: Instruction, args: List[int]):
+def op_get_prop_addr(zm: ZMachine, instr: Instruction, args: list[int]):
     """get property data address"""
     zm.process_result(instr, zm.get_prop_addr(args[0], args[1]))
 
 
-def op_get_next_prop(zm: ZMachine, instr: Instruction, args: List[int]):
+def op_get_next_prop(zm: ZMachine, instr: Instruction, args: list[int]):
     """get next property number"""
     zm.process_result(instr, zm.get_next_prop(args[0], args[1]))
 
 
-def op_get_prop_len(zm: ZMachine, instr: Instruction, args: List[int]):
+def op_get_prop_len(zm: ZMachine, instr: Instruction, args: list[int]):
     """get property data length"""
     zm.process_result(instr, zm.get_prop_len(args[0]))
 
 
-def op_put_prop(zm: ZMachine, instr: Instruction, args: List[int]):
+def op_put_prop(zm: ZMachine, instr: Instruction, args: list[int]):
     """put property value"""
     zm.put_prop(args[0], args[1], args[2])
     zm.pc = instr.next_
@@ -388,7 +405,8 @@ def op_put_prop(zm: ZMachine, instr: Instruction, args: List[int]):
 
 # --- Input ---
 
-def op_sread(zm: ZMachine, instr: Instruction, args: List[int]):
+
+def op_sread(zm: ZMachine, instr: Instruction, args: list[int]):
     """read input, tokenise"""
     zm.update_status_bar()
     text_addr = args[0]
@@ -404,7 +422,7 @@ def op_sread(zm: ZMachine, instr: Instruction, args: List[int]):
     zm.pc = instr.next_
 
 
-def op_show_status(zm: ZMachine, instr: Instruction, args: List[int]):
+def op_show_status(zm: ZMachine, instr: Instruction, args: list[int]):
     """show status bar"""
     zm.update_status_bar()
     zm.pc = instr.next_
@@ -412,7 +430,8 @@ def op_show_status(zm: ZMachine, instr: Instruction, args: List[int]):
 
 # --- Misc ---
 
-def op_random(zm: ZMachine, instr: Instruction, args: List[int]):
+
+def op_random(zm: ZMachine, instr: Instruction, args: list[int]):
     """random number"""
     range_val = from_u16_to_i16(args[0])
     if range_val <= 0:
@@ -422,33 +441,33 @@ def op_random(zm: ZMachine, instr: Instruction, args: List[int]):
         zm.process_result(instr, zm.rng.randint(1, range_val))
 
 
-def op_verify(zm: ZMachine, instr: Instruction, args: List[int]):
+def op_verify(zm: ZMachine, instr: Instruction, args: list[int]):
     """verify checksum"""
     result = zm.calculate_checksum() == zm.header.checksum
     zm.process_branch(instr.branch, instr.next_, result)
 
 
-def op_piracy(zm: ZMachine, instr: Instruction, args: List[int]):
+def op_piracy(zm: ZMachine, instr: Instruction, args: list[int]):
     """piracy check - always pass"""
     zm.process_branch(instr.branch, instr.next_, True)
 
 
-def op_save(zm: ZMachine, instr: Instruction, args: List[int]):
+def op_save(zm: ZMachine, instr: Instruction, args: list[int]):
     """save (v3 branch-based) - stub"""
     zm.process_branch(instr.branch, instr.next_, False)
 
 
-def op_restore(zm: ZMachine, instr: Instruction, args: List[int]):
+def op_restore(zm: ZMachine, instr: Instruction, args: list[int]):
     """restore (v3 branch-based) - stub"""
     zm.process_branch(instr.branch, instr.next_, False)
 
 
-def op_restart(zm: ZMachine, instr: Instruction, args: List[int]):
+def op_restart(zm: ZMachine, instr: Instruction, args: list[int]):
     """restart the game - stub"""
     zm.running = False
 
 
-def op_pop(zm: ZMachine, instr: Instruction, args: List[int]):
+def op_pop(zm: ZMachine, instr: Instruction, args: list[int]):
     """pop/catch — pop stack in v1-4"""
     zm.stack_pop()
     zm.pc = instr.next_
@@ -458,15 +477,15 @@ def op_pop(zm: ZMachine, instr: Instruction, args: List[int]):
 
 DISPATCH_TABLE = {
     # 2OP
-    Opcode.OP2_1:  op_je,
-    Opcode.OP2_2:  op_jl,
-    Opcode.OP2_3:  op_jg,
-    Opcode.OP2_4:  op_dec_chk,
-    Opcode.OP2_5:  op_inc_chk,
-    Opcode.OP2_6:  op_jin,
-    Opcode.OP2_7:  op_test,
-    Opcode.OP2_8:  op_or,
-    Opcode.OP2_9:  op_and,
+    Opcode.OP2_1: op_je,
+    Opcode.OP2_2: op_jl,
+    Opcode.OP2_3: op_jg,
+    Opcode.OP2_4: op_dec_chk,
+    Opcode.OP2_5: op_inc_chk,
+    Opcode.OP2_6: op_jin,
+    Opcode.OP2_7: op_test,
+    Opcode.OP2_8: op_or,
+    Opcode.OP2_9: op_and,
     Opcode.OP2_10: op_test_attr,
     Opcode.OP2_11: op_set_attr,
     Opcode.OP2_12: op_clear_attr,
@@ -529,7 +548,7 @@ DISPATCH_TABLE = {
 }
 
 
-def dispatch(zm: ZMachine, instr: Instruction, args: List[int]):
+def dispatch(zm: ZMachine, instr: Instruction, args: list[int]):
     """Dispatch an instruction to its handler."""
     handler = DISPATCH_TABLE.get(instr.opcode)
     if handler is None:
