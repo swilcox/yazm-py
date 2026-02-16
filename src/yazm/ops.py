@@ -453,18 +453,73 @@ def op_piracy(zm: ZMachine, instr: Instruction, args: list[int]):
 
 
 def op_save(zm: ZMachine, instr: Instruction, args: list[int]):
-    """save (v3 branch-based) - stub"""
-    zm.process_branch(instr.branch, instr.next_, False)
+    """save game state to file (v3 branch-based)"""
+    try:
+        filename = zm.ui.zinput_filename("Save filename: ")
+        if not filename:
+            zm.process_branch(instr.branch, instr.next_, False)
+            return
+        # For v3, the resume PC on restore must be the branch target (success path),
+        # not instr.next_ (the fall-through / failure path).
+        assert instr.branch is not None
+        if instr.branch.address is not None:
+            resume_pc = instr.branch.address
+        else:
+            resume_pc = instr.next_
+        data = zm.make_save_state(resume_pc)
+        with open(filename, "wb") as f:
+            f.write(data)
+        zm.process_branch(instr.branch, instr.next_, True)
+    except Exception:
+        zm.process_branch(instr.branch, instr.next_, False)
 
 
 def op_restore(zm: ZMachine, instr: Instruction, args: list[int]):
-    """restore (v3 branch-based) - stub"""
-    zm.process_branch(instr.branch, instr.next_, False)
+    """restore game state from file (v3 branch-based)"""
+    try:
+        filename = zm.ui.zinput_filename("Restore filename: ")
+        if not filename:
+            zm.process_branch(instr.branch, instr.next_, False)
+            return
+        with open(filename, "rb") as f:
+            data = f.read()
+        zm.restore_state(data)
+        # On success, execution resumes at the saved PC (set by restore_state)
+    except Exception:
+        zm.process_branch(instr.branch, instr.next_, False)
+
+
+def op_save_undo(zm: ZMachine, instr: Instruction, args: list[int]):
+    """save undo state"""
+    try:
+        state = zm.make_save_state(instr.next_)
+        zm.undos.append(state)
+        zm.redos.clear()
+        zm.process_result(instr, 1)
+    except Exception:
+        zm.process_result(instr, 0)
+
+
+def op_restore_undo(zm: ZMachine, instr: Instruction, args: list[int]):
+    """restore undo state"""
+    if not zm.undos:
+        zm.process_result(instr, 0)
+        return
+    try:
+        state = zm.undos.pop()
+        zm.restore_state(state)
+        # On success, execution resumes at the saved PC (set by restore_state)
+    except Exception:
+        zm.process_result(instr, 0)
 
 
 def op_restart(zm: ZMachine, instr: Instruction, args: list[int]):
-    """restart the game - stub"""
-    zm.running = False
+    """restart the game"""
+    static_addr = zm.header.static_memory_addr
+    zm.memory[0:static_addr] = zm.original_memory[0:static_addr]
+    zm.frames = [zm.frames[0]]
+    zm.frames[0].empty()
+    zm.pc = zm.initial_pc
 
 
 def op_pop(zm: ZMachine, instr: Instruction, args: list[int]):
@@ -545,6 +600,9 @@ DISPATCH_TABLE = {
     Opcode.VAR_232: op_push,
     Opcode.VAR_233: op_pull,
     Opcode.VAR_245: op_sound_effect,
+    # EXT
+    Opcode.EXT_1009: op_save_undo,
+    Opcode.EXT_1010: op_restore_undo,
 }
 
 

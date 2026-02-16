@@ -76,6 +76,12 @@ class ZUIStd:
         except (EOFError, KeyboardInterrupt):
             raise SystemExit(0) from None
 
+    def zinput_filename(self, prompt: str) -> str:
+        try:
+            return input(prompt)
+        except (EOFError, KeyboardInterrupt):
+            return ""
+
     def set_status_bar(self, left: str, right: str):
         if self.plain:
             return

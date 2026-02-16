@@ -4,7 +4,7 @@ import sys
 from dataclasses import dataclass
 from random import Random
 
-from . import zscii
+from . import quetzal, snapshot, zscii
 from .enums import OperandType, StatusLineType
 from .frame import Frame
 from .options import Options
@@ -65,7 +65,7 @@ class ZMachine:
         self.current_state = None
         self.save_name = ""
         self.save_dir = ""
-        self.original_dynamic = bytearray([])
+        self.original_dynamic = bytearray(raw_data[0 : self.header.static_memory_addr])
         self.options = Options.default()
         self.undos = []
         self.redos = []
@@ -288,38 +288,35 @@ class ZMachine:
         left, right = self.get_status()
         self.ui.set_status_bar(left, right)
 
-    def make_save_state(self, pc: int) -> bytes | None:
-        # TODO: finish this!
-        # dynamic = self.memory[0 : self.header.static_memory_addr]
-        # original = self.original_dynamic.as_slice()
-        # frames = self.frames
-        # chksum = self.header.checksum
-        # release = self.header.release
-        # serial = self.header.serial_number
-        # QuetzalSave::make(pc, dynamic, original, frames, chksum, release, serial)
-        pass
+    def make_save_state(self, pc: int) -> bytes:
+        return quetzal.save(self, pc)
 
-    def restore_state(self, data: ZData):
-        ## save = QuetzalSave::from_bytes(data, self.original_dynamic)
-        # if save.checksum != self.header.checksum:
-        #    raise Exception('Invalid Checksum!')
-        # if self.static_memory_addr < len(save.memory):
-        #    raise Exception('Invalid save, memory is too long!')
-        # self.pc = save.pc
-        # self.frames = save.frames
-        # self.memory.write(0, save.memory.as_slice())
-        ...
-        # TODO: implement
+    def restore_state(self, data: bytes):
+        quetzal.restore(self, data)
 
     def undo(self) -> bool:
-        ...
-        return False
-        # TODO
+        if not self.undos:
+            return False
+        current = self.make_save_state(self.pc)
+        self.redos.append(current)
+        state = self.undos.pop()
+        self.restore_state(state)
+        return True
 
     def redo(self) -> bool:
-        ...
-        return False
-        # TODO
+        if not self.redos:
+            return False
+        current = self.make_save_state(self.pc)
+        self.undos.append(current)
+        state = self.redos.pop()
+        self.restore_state(state)
+        return True
+
+    def freeze(self) -> str:
+        return snapshot.freeze(self)
+
+    def thaw(self, json_str: str):
+        snapshot.thaw(self, json_str)
 
     def get_arguments(self, operands, optypes: list[OperandType]) -> list:
         arguments = []
@@ -386,13 +383,6 @@ class ZMachine:
         # handle read
         # advance pc to next
 
-    def restore(self, data: bytes):
-        # TODO
-        pass
-
-    def load_savestate(self, data: str):
-        # TODO
-        pass
 
     def get_parent(self, obj_id: int) -> int:
         if obj_id == 0:

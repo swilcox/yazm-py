@@ -46,10 +46,16 @@ class ZDebugger:
         return should_ask_again
 
     def debug_undo(self, *args, **kwargs):
-        pass
+        if self.zm.undo():
+            self.zm.ui.zoutput("[Undo successful]\n")
+        else:
+            self.zm.ui.zoutput("[Nothing to undo]\n")
 
     def debug_redo(self, *args, **kwargs):
-        pass
+        if self.zm.redo():
+            self.zm.ui.zoutput("[Redo successful]\n")
+        else:
+            self.zm.ui.zoutput("[Nothing to redo]\n")
 
     def debug_header(self, *args, **kwargs):
         pass

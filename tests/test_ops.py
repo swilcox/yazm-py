@@ -4,8 +4,8 @@ import pytest
 
 from yazm.enums import Opcode
 from yazm.frame import Frame
-from yazm.zmachine import ZMachine
 from yazm.zinstruction import Branch, Instruction
+from yazm.zmachine import ZMachine
 
 from ._sample_data import ZSAMPLE_DATA
 
@@ -25,7 +25,7 @@ def make_instr(opcode=Opcode.OP2_20, store=0, next_=0x100, branch=None):
 
 # --- Arithmetic ---
 
-from yazm.ops import op_add, op_sub, op_mul, op_div, op_mod
+from yazm.ops import op_add, op_div, op_mod, op_mul, op_sub
 
 
 def test_add_basic():

@@ -1,7 +1,6 @@
 from yazm.enums import Opcode, OperandCount, OperandType, OpForm
 from yazm.zinstruction import Instruction
 
-
 # --- _get_opcode_form ---
 
 

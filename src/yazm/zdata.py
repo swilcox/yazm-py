@@ -56,5 +56,8 @@ class ZData(bytearray):
     def get_writer(self, addr: int) -> ZData.ZDataWriter:
         return self.ZDataWriter(self, addr)
 
+    def write_bulk(self, offset: int, data: bytes | bytearray):
+        self[offset : offset + len(data)] = data
+
     def get_reader(self, addr: int) -> ZData.ZDataReader:
         return self.ZDataReader(self, addr)
