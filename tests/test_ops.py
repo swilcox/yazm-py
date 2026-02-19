@@ -507,3 +507,538 @@ def test_dispatch_table_has_all_common_opcodes():
     ]
     for op in expected:
         assert op in DISPATCH_TABLE, f"{op} missing from DISPATCH_TABLE"
+
+
+# =============================================================================
+# Additional coverage tests
+# =============================================================================
+
+import os
+
+
+class _CapUI:
+    """Minimal UI mock: captures output, provides canned input."""
+
+    def __init__(self, input_text="north", filename=""):
+        self.output = []
+        self.input_text = input_text
+        self.filename = filename
+
+    def zoutput(self, text: str):
+        self.output.append(text)
+
+    def zoutput_object(self, text: str, highlight: bool = False, is_location: bool = False):
+        self.output.append(text)
+
+    def set_status_bar(self, left: str, right: str):
+        pass
+
+    def zinput(self) -> str:
+        return self.input_text
+
+    def zinput_filename(self, prompt: str) -> str:
+        return self.filename
+
+
+def make_zm_cap(input_text="north", filename=""):
+    """ZMachine with captured UI and a pre-pushed working frame."""
+    zm = ZMachine(ZSAMPLE_DATA)
+    zm.ui = _CapUI(input_text=input_text, filename=filename)
+    zm.frames.append(Frame(resume=0, store=None, locals_=[0, 0, 0, 0, 0], arguments=[]))
+    return zm
+
+
+# --- op_call edge case ---
+
+from yazm.ops import op_call
+
+
+def test_call_empty_args():
+    """op_call with no args stores 0 (addr=0 path)."""
+    zm = make_zm()
+    instr = make_instr(opcode=Opcode.VAR_224, store=1)
+    op_call(zm, instr, [])
+    assert zm.read_variable(1) == 0
+
+
+# --- op_jin ---
+
+from yazm.ops import op_jin
+
+
+def test_jin_true():
+    zm = make_zm()
+    total = zm.get_total_object_count()
+    obj_a, obj_b = total - 1, total - 2
+    zm.remove_obj(obj_a)
+    zm.insert_obj(obj_a, obj_b)
+    branch = Branch(condition=True, address=0x300)
+    instr = make_instr(opcode=Opcode.OP2_6, branch=branch, next_=0x100)
+    op_jin(zm, instr, [obj_a, obj_b])
+    assert zm.pc == 0x300
+
+
+def test_jin_false():
+    zm = make_zm()
+    total = zm.get_total_object_count()
+    obj_a, obj_b = total - 1, total - 2
+    zm.remove_obj(obj_a)
+    branch = Branch(condition=True, address=0x300)
+    instr = make_instr(opcode=Opcode.OP2_6, branch=branch, next_=0x100)
+    op_jin(zm, instr, [obj_a, obj_b])
+    assert zm.pc == 0x100
+
+
+# --- op_test_attr ---
+
+from yazm.ops import op_test_attr
+
+
+def test_test_attr_true_op():
+    zm = make_zm()
+    total = zm.get_total_object_count()
+    obj = total - 1
+    zm.set_attr(obj, 3)
+    branch = Branch(condition=True, address=0x300)
+    instr = make_instr(opcode=Opcode.OP2_10, branch=branch, next_=0x100)
+    op_test_attr(zm, instr, [obj, 3])
+    assert zm.pc == 0x300
+
+
+def test_test_attr_false_op():
+    zm = make_zm()
+    total = zm.get_total_object_count()
+    obj = total - 1
+    zm.clear_attr(obj, 3)
+    branch = Branch(condition=True, address=0x300)
+    instr = make_instr(opcode=Opcode.OP2_10, branch=branch, next_=0x100)
+    op_test_attr(zm, instr, [obj, 3])
+    assert zm.pc == 0x100
+
+
+# --- op_sound_effect ---
+
+from yazm.ops import op_sound_effect
+
+
+def test_sound_effect():
+    zm = make_zm()
+    instr = make_instr(next_=0x100)
+    op_sound_effect(zm, instr, [])
+    assert zm.pc == 0x100
+
+
+# --- Print ops ---
+
+from yazm.ops import op_new_line, op_print, op_print_addr, op_print_char
+from yazm.ops import op_print_num, op_print_obj, op_print_paddr, op_print_ret
+
+
+def test_print_op():
+    zm = make_zm_cap()
+    instr = Instruction(addr=0x50, opcode=Opcode.OP0_178, name="print", next_=0x100, text="Hello")
+    op_print(zm, instr, [])
+    assert zm.ui.output == ["Hello"]
+    assert zm.pc == 0x100
+
+
+def test_print_ret_op():
+    zm = make_zm_cap()
+    zm.frames.append(Frame(resume=0x200, store=1, locals_=[0], arguments=[]))
+    instr = Instruction(addr=0x50, opcode=Opcode.OP0_179, name="print_ret", next_=0x100, text="Bye")
+    op_print_ret(zm, instr, [])
+    assert any("Bye" in t for t in zm.ui.output)
+    assert zm.pc == 0x200
+
+
+def test_new_line_op():
+    zm = make_zm_cap()
+    instr = make_instr(next_=0x100)
+    op_new_line(zm, instr, [])
+    assert zm.ui.output[0] == "\n"
+    assert zm.pc == 0x100
+
+
+def test_print_num_positive():
+    zm = make_zm_cap()
+    instr = make_instr(next_=0x100)
+    op_print_num(zm, instr, [42])
+    assert zm.ui.output == ["42"]
+
+
+def test_print_num_negative():
+    zm = make_zm_cap()
+    instr = make_instr(next_=0x100)
+    op_print_num(zm, instr, [0xFFFF])  # -1 as signed u16
+    assert zm.ui.output == ["-1"]
+
+
+def test_print_char_op():
+    zm = make_zm_cap()
+    instr = make_instr(next_=0x100)
+    op_print_char(zm, instr, [65])  # ZSCII 65 = 'A'
+    assert zm.ui.output[0] == "A"
+    assert zm.pc == 0x100
+
+
+def test_print_obj_op():
+    zm = make_zm_cap()
+    instr = make_instr(next_=0x100)
+    op_print_obj(zm, instr, [1])
+    assert len(zm.ui.output) > 0
+    assert zm.pc == 0x100
+
+
+def test_print_addr_op():
+    zm = make_zm_cap()
+    addr = zm.get_object_prop_table_addr(1) + 1  # object 1's name zstring
+    instr = make_instr(next_=0x100)
+    op_print_addr(zm, instr, [addr])
+    assert zm.pc == 0x100
+
+
+def test_print_paddr_op():
+    zm = make_zm_cap()
+    prop_addr = zm.get_object_prop_table_addr(1) + 1
+    packed = prop_addr // 2  # v3: packed = byte_addr / 2
+    instr = make_instr(next_=0x100)
+    op_print_paddr(zm, instr, [packed])
+    assert zm.pc == 0x100
+
+
+# --- Object ops ---
+
+from yazm.ops import (
+    op_clear_attr,
+    op_get_child,
+    op_get_parent,
+    op_get_sibling,
+    op_insert_obj,
+    op_remove_obj,
+    op_set_attr,
+)
+
+
+def test_set_attr_op():
+    zm = make_zm()
+    total = zm.get_total_object_count()
+    obj = total - 1
+    zm.clear_attr(obj, 2)
+    instr = make_instr(next_=0x100)
+    op_set_attr(zm, instr, [obj, 2])
+    assert zm.test_attr(obj, 2) == 1
+    assert zm.pc == 0x100
+
+
+def test_clear_attr_op():
+    zm = make_zm()
+    total = zm.get_total_object_count()
+    obj = total - 1
+    zm.set_attr(obj, 2)
+    instr = make_instr(next_=0x100)
+    op_clear_attr(zm, instr, [obj, 2])
+    assert zm.test_attr(obj, 2) == 0
+    assert zm.pc == 0x100
+
+
+def test_insert_obj_op():
+    zm = make_zm()
+    total = zm.get_total_object_count()
+    obj_a, obj_b = total - 1, total - 2
+    zm.remove_obj(obj_a)
+    instr = make_instr(next_=0x100)
+    op_insert_obj(zm, instr, [obj_a, obj_b])
+    assert zm.get_parent(obj_a) == obj_b
+    assert zm.pc == 0x100
+
+
+def test_remove_obj_op():
+    zm = make_zm()
+    total = zm.get_total_object_count()
+    obj_a, obj_b = total - 1, total - 2
+    zm.remove_obj(obj_a)
+    zm.insert_obj(obj_a, obj_b)
+    instr = make_instr(next_=0x100)
+    op_remove_obj(zm, instr, [obj_a])
+    assert zm.get_parent(obj_a) == 0
+    assert zm.pc == 0x100
+
+
+def test_get_child_with_child():
+    zm = make_zm()
+    total = zm.get_total_object_count()
+    obj_a, obj_b = total - 1, total - 2
+    zm.remove_obj(obj_a)
+    zm.insert_obj(obj_a, obj_b)
+    branch = Branch(condition=True, address=0x300)
+    instr = make_instr(store=1, branch=branch, next_=0x100)
+    op_get_child(zm, instr, [obj_b])
+    assert zm.read_variable(1) == obj_a
+    assert zm.pc == 0x300
+
+
+def test_get_child_no_child():
+    zm = make_zm()
+    total = zm.get_total_object_count()
+    obj_a = total - 1
+    zm.remove_obj(obj_a)
+    zm.set_child(obj_a, 0)  # ensure no children
+    branch = Branch(condition=True, address=0x300)
+    instr = make_instr(store=1, branch=branch, next_=0x100)
+    op_get_child(zm, instr, [obj_a])
+    assert zm.read_variable(1) == 0
+    assert zm.pc == 0x100
+
+
+def test_get_sibling_op():
+    zm = make_zm()
+    total = zm.get_total_object_count()
+    obj_a, obj_b, parent = total - 1, total - 2, total - 3
+    zm.remove_obj(obj_a)
+    zm.remove_obj(obj_b)
+    zm.insert_obj(obj_a, parent)
+    zm.insert_obj(obj_b, parent)  # obj_b is now first child, obj_a is sibling
+    branch = Branch(condition=True, address=0x300)
+    instr = make_instr(store=1, branch=branch, next_=0x100)
+    op_get_sibling(zm, instr, [obj_b])
+    assert zm.read_variable(1) == obj_a
+    assert zm.pc == 0x300
+
+
+def test_get_parent_op():
+    zm = make_zm()
+    total = zm.get_total_object_count()
+    obj_a, obj_b = total - 1, total - 2
+    zm.remove_obj(obj_a)
+    zm.insert_obj(obj_a, obj_b)
+    instr = make_instr(store=1)
+    op_get_parent(zm, instr, [obj_a])
+    assert zm.read_variable(1) == obj_b
+
+
+# --- Property ops ---
+
+from yazm.ops import op_get_next_prop, op_get_prop, op_get_prop_addr, op_get_prop_len, op_put_prop
+
+
+def test_get_prop_op():
+    zm = make_zm()
+    first_prop = zm.get_next_prop(1, 0)
+    instr = make_instr(store=1)
+    op_get_prop(zm, instr, [1, first_prop])
+    assert isinstance(zm.read_variable(1), int)
+
+
+def test_get_prop_addr_op():
+    zm = make_zm()
+    first_prop = zm.get_next_prop(1, 0)
+    instr = make_instr(store=1)
+    op_get_prop_addr(zm, instr, [1, first_prop])
+    assert zm.read_variable(1) > 0
+
+
+def test_get_next_prop_op():
+    zm = make_zm()
+    instr = make_instr(store=1)
+    op_get_next_prop(zm, instr, [1, 0])
+    assert zm.read_variable(1) > 0
+
+
+def test_get_prop_len_op():
+    zm = make_zm()
+    first_prop = zm.get_next_prop(1, 0)
+    addr = zm.get_prop_addr(1, first_prop)
+    instr = make_instr(store=1)
+    op_get_prop_len(zm, instr, [addr])
+    assert zm.read_variable(1) >= 1
+
+
+def test_put_prop_op():
+    zm = make_zm()
+    first_prop = zm.get_next_prop(1, 0)
+    addr = zm.get_prop_addr(1, first_prop)
+    length = zm.get_prop_len(addr)
+    new_value = 0x1234 if length >= 2 else 0x42
+    instr = make_instr(next_=0x100)
+    op_put_prop(zm, instr, [1, first_prop, new_value])
+    assert zm.get_prop_value(1, first_prop) == new_value
+    assert zm.pc == 0x100
+
+
+# --- Input / Status ---
+
+from yazm.ops import op_show_status, op_sread
+
+
+def test_sread_op():
+    zm = make_zm_cap(input_text="north")
+    text_addr = 0x200
+    parse_addr = 0x220
+    zm.memory.write_u8(text_addr, 10)  # max 10 chars
+    instr = make_instr(next_=0x300)
+    op_sread(zm, instr, [text_addr, parse_addr])
+    assert zm.pc == 0x300
+    assert zm.memory.u8(text_addr + 1) == ord("n")
+
+
+def test_show_status_op():
+    zm = make_zm_cap()
+    instr = make_instr(next_=0x100)
+    op_show_status(zm, instr, [])
+    assert zm.pc == 0x100
+
+
+# --- Random ---
+
+from yazm.ops import op_random
+
+
+def test_random_positive_range():
+    zm = make_zm()
+    instr = make_instr(store=1)
+    op_random(zm, instr, [10])
+    val = zm.read_variable(1)
+    assert 1 <= val <= 10
+
+
+def test_random_seed_zero():
+    zm = make_zm()
+    instr = make_instr(store=1)
+    op_random(zm, instr, [0])  # 0 → seed to 0, returns 0
+    assert zm.read_variable(1) == 0
+
+
+def test_random_negative_seeds():
+    zm = make_zm()
+    instr = make_instr(store=1)
+    op_random(zm, instr, [0xFFFE])  # -2 signed → abs=2 → seed, returns 0
+    assert zm.read_variable(1) == 0
+
+
+# --- Verify / Piracy ---
+
+from yazm.ops import op_piracy, op_verify
+
+
+def test_verify_op():
+    zm = make_zm()
+    branch = Branch(condition=True, address=0x300)
+    instr = make_instr(branch=branch, next_=0x100)
+    op_verify(zm, instr, [])
+    assert zm.pc in (0x100, 0x300)
+
+
+def test_piracy_always_passes():
+    zm = make_zm()
+    branch = Branch(condition=True, address=0x300)
+    instr = make_instr(branch=branch, next_=0x100)
+    op_piracy(zm, instr, [])
+    assert zm.pc == 0x300
+
+
+# --- Save / Restore ---
+
+from yazm.ops import op_restore, op_save
+
+
+def test_save_op_no_filename():
+    zm = make_zm_cap(filename="")
+    branch = Branch(condition=True, address=0x300)
+    instr = make_instr(branch=branch, next_=0x100)
+    op_save(zm, instr, [])
+    assert zm.pc == 0x100
+
+
+def test_save_op_success(tmp_path):
+    filename = str(tmp_path / "test.sav")
+    zm = make_zm_cap(filename=filename)
+    branch = Branch(condition=True, address=0x300)
+    instr = make_instr(branch=branch, next_=0x100)
+    op_save(zm, instr, [])
+    assert zm.pc == 0x300
+    assert os.path.exists(filename)
+
+
+def test_restore_op_no_filename():
+    zm = make_zm_cap(filename="")
+    branch = Branch(condition=True, address=0x300)
+    instr = make_instr(branch=branch, next_=0x100)
+    op_restore(zm, instr, [])
+    assert zm.pc == 0x100
+
+
+def test_restore_op_success(tmp_path):
+    filename = str(tmp_path / "test.sav")
+    zm = make_zm_cap(filename=filename)
+    save_branch = Branch(condition=True, address=0x300)
+    save_instr = make_instr(branch=save_branch, next_=0x100)
+    op_save(zm, save_instr, [])
+    assert os.path.exists(filename)
+    restore_branch = Branch(condition=True, address=0x300)
+    restore_instr = make_instr(branch=restore_branch, next_=0x100)
+    op_restore(zm, restore_instr, [])
+    assert zm.pc == 0x300  # saved PC was the branch address
+
+
+# --- Save/Restore Undo ---
+
+from yazm.ops import op_restore_undo, op_save_undo
+
+
+def test_save_undo_op():
+    zm = make_zm()
+    instr = make_instr(store=1, next_=0x100)
+    op_save_undo(zm, instr, [])
+    assert len(zm.undos) == 1
+    assert zm.read_variable(1) == 1
+
+
+def test_restore_undo_empty():
+    zm = make_zm()
+    instr = make_instr(store=1)
+    op_restore_undo(zm, instr, [])
+    assert zm.read_variable(1) == 0
+
+
+def test_restore_undo_op():
+    zm = make_zm()
+    instr = make_instr(store=1, next_=0x100)
+    op_save_undo(zm, instr, [])
+    assert len(zm.undos) == 1
+    op_restore_undo(zm, instr, [])
+    assert len(zm.undos) == 0
+
+
+# --- Restart / Pop ---
+
+from yazm.ops import op_pop, op_restart
+
+
+def test_restart_op():
+    zm = make_zm()
+    original_pc = zm.initial_pc
+    zm.pc = 0x1234
+    instr = make_instr()
+    op_restart(zm, instr, [])
+    assert zm.pc == original_pc
+
+
+def test_pop_op():
+    zm = make_zm()
+    zm.stack_push(77)
+    instr = make_instr(next_=0x100)
+    op_pop(zm, instr, [])
+    assert zm.pc == 0x100
+
+
+# --- Dispatch error ---
+
+from yazm.ops import dispatch
+
+
+def test_dispatch_unimplemented_opcode():
+    zm = make_zm()
+    # OP1_136 (call_1s) is in Opcode enum but not in DISPATCH_TABLE
+    instr = Instruction(addr=0x50, opcode=Opcode.OP1_136, name="call_1s", store=None, next_=0x100)
+    with pytest.raises(Exception, match="Unimplemented"):
+        dispatch(zm, instr, [])

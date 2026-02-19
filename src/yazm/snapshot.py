@@ -29,4 +29,5 @@ def thaw(zm: ZMachine, json_str: str):
     zm.memory[0 : len(memory)] = memory
     zm.pc = state["pc"]
     zm.frames = [Frame.from_bytes(bytearray(f)) for f in state["frames"]]
-    zm.rng.setstate(tuple(state["rng_state"]))
+    version, internalstate, gauss_next = state["rng_state"]
+    zm.rng.setstate((version, tuple(internalstate), gauss_next))
