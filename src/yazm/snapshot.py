@@ -14,12 +14,14 @@ if TYPE_CHECKING:
 
 def freeze(zm: ZMachine) -> str:
     """Serialize full ZMachine state to a JSON string."""
-    return json.dumps({
-        "memory": base64.b64encode(bytes(zm.memory)).decode("ascii"),
-        "pc": zm.pc,
-        "frames": [frame.to_list() for frame in zm.frames],
-        "rng_state": zm.rng.getstate(),
-    })
+    return json.dumps(
+        {
+            "memory": base64.b64encode(bytes(zm.memory)).decode("ascii"),
+            "pc": zm.pc,
+            "frames": [frame.to_list() for frame in zm.frames],
+            "rng_state": zm.rng.getstate(),
+        }
+    )
 
 
 def thaw(zm: ZMachine, json_str: str):

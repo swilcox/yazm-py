@@ -1,11 +1,86 @@
 """Tests for opcode handler functions in ops.py."""
 
+import os
+
 import pytest
 
 from yazm.enums import Opcode
 from yazm.frame import Frame
+from yazm.ops import (
+    DISPATCH_TABLE,
+    dispatch,
+    op_add,
+    op_and,
+    op_call,
+    op_clear_attr,
+    op_dec,
+    op_dec_chk,
+    op_div,
+    op_get_child,
+    op_get_next_prop,
+    op_get_parent,
+    op_get_prop,
+    op_get_prop_addr,
+    op_get_prop_len,
+    op_get_sibling,
+    op_inc,
+    op_inc_chk,
+    op_insert_obj,
+    op_je,
+    op_jg,
+    op_jin,
+    op_jl,
+    op_jump,
+    op_jz,
+    op_load,
+    op_loadb,
+    op_loadw,
+    op_mod,
+    op_mul,
+    op_new_line,
+    op_nop,
+    op_not,
+    op_or,
+    op_piracy,
+    op_pop,
+    op_print,
+    op_print_addr,
+    op_print_char,
+    op_print_num,
+    op_print_obj,
+    op_print_paddr,
+    op_print_ret,
+    op_pull,
+    op_push,
+    op_put_prop,
+    op_quit,
+    op_random,
+    op_remove_obj,
+    op_restart,
+    op_restore,
+    op_restore_undo,
+    op_ret,
+    op_ret_popped,
+    op_rfalse,
+    op_rtrue,
+    op_save,
+    op_save_undo,
+    op_set_attr,
+    op_show_status,
+    op_sound_effect,
+    op_sread,
+    op_store,
+    op_storeb,
+    op_storew,
+    op_sub,
+    op_test,
+    op_test_attr,
+    op_verify,
+)
+from yazm.utils import from_u16_to_i16
 from yazm.zinstruction import Branch, Instruction
 from yazm.zmachine import ZMachine
+from yazm.zui_web import ZUIWeb
 
 from ._sample_data import ZSAMPLE_DATA
 
@@ -24,8 +99,6 @@ def make_instr(opcode=Opcode.OP2_20, store=0, next_=0x100, branch=None):
 
 
 # --- Arithmetic ---
-
-from yazm.ops import op_add, op_div, op_mod, op_mul, op_sub
 
 
 def test_add_basic():
@@ -62,8 +135,6 @@ def test_sub_negative_result():
     instr = make_instr(store=1)
     op_sub(zm, instr, [3, 10])  # 3 - 10 = -7
     result = zm.read_variable(1)
-    from yazm.utils import from_u16_to_i16
-
     assert from_u16_to_i16(result) == -7
 
 
@@ -79,8 +150,6 @@ def test_mul_negative():
     instr = make_instr(store=1)
     # -3 * 4 = -12
     op_mul(zm, instr, [0xFFFD, 4])
-    from yazm.utils import from_u16_to_i16
-
     assert from_u16_to_i16(zm.read_variable(1)) == -12
 
 
@@ -96,8 +165,6 @@ def test_div_negative_truncates_toward_zero():
     instr = make_instr(store=1)
     # -7 / 2 = -3 (truncated toward zero, not -4)
     op_div(zm, instr, [0xFFF9, 2])  # -7 as u16
-    from yazm.utils import from_u16_to_i16
-
     assert from_u16_to_i16(zm.read_variable(1)) == -3
 
 
@@ -120,8 +187,6 @@ def test_mod_sign_follows_dividend():
     instr = make_instr(store=1)
     # -7 mod 2 = -1 (sign follows dividend)
     op_mod(zm, instr, [0xFFF9, 2])
-    from yazm.utils import from_u16_to_i16
-
     assert from_u16_to_i16(zm.read_variable(1)) == -1
 
 
@@ -133,8 +198,6 @@ def test_mod_by_zero():
 
 
 # --- Logical ---
-
-from yazm.ops import op_and, op_not, op_or
 
 
 def test_and():
@@ -159,8 +222,6 @@ def test_not():
 
 
 # --- Control Flow ---
-
-from yazm.ops import op_jump, op_nop, op_quit, op_ret, op_ret_popped, op_rfalse, op_rtrue
 
 
 def test_rtrue():
@@ -231,8 +292,6 @@ def test_nop():
 
 
 # --- Branch ---
-
-from yazm.ops import op_je, op_jg, op_jl, op_jz, op_test
 
 
 def test_jz_true():
@@ -321,8 +380,6 @@ def test_branch_inverted_condition():
 
 # --- Stack ops ---
 
-from yazm.ops import op_pull, op_push
-
 
 def test_push():
     zm = make_zm()
@@ -343,8 +400,6 @@ def test_pull():
 
 
 # --- Variable ops ---
-
-from yazm.ops import op_dec, op_dec_chk, op_inc, op_inc_chk, op_load, op_store
 
 
 def test_inc():
@@ -442,8 +497,6 @@ def test_load():
 
 # --- Memory ops ---
 
-from yazm.ops import op_loadb, op_loadw, op_storeb, op_storew
-
 
 def test_loadw():
     zm = make_zm()
@@ -488,8 +541,6 @@ def test_storeb():
 
 # --- Dispatch table coverage ---
 
-from yazm.ops import DISPATCH_TABLE
-
 
 def test_dispatch_table_has_all_common_opcodes():
     """Verify key opcodes are mapped."""
@@ -512,8 +563,6 @@ def test_dispatch_table_has_all_common_opcodes():
 # =============================================================================
 # Additional coverage tests
 # =============================================================================
-
-import os
 
 
 class _CapUI:
@@ -550,8 +599,6 @@ def make_zm_cap(input_text="north", filename=""):
 
 # --- op_call edge case ---
 
-from yazm.ops import op_call
-
 
 def test_call_empty_args():
     """op_call with no args stores 0 (addr=0 path)."""
@@ -562,8 +609,6 @@ def test_call_empty_args():
 
 
 # --- op_jin ---
-
-from yazm.ops import op_jin
 
 
 def test_jin_true():
@@ -591,8 +636,6 @@ def test_jin_false():
 
 # --- op_test_attr ---
 
-from yazm.ops import op_test_attr
-
 
 def test_test_attr_true_op():
     zm = make_zm()
@@ -618,8 +661,6 @@ def test_test_attr_false_op():
 
 # --- op_sound_effect ---
 
-from yazm.ops import op_sound_effect
-
 
 def test_sound_effect():
     zm = make_zm()
@@ -629,9 +670,6 @@ def test_sound_effect():
 
 
 # --- Print ops ---
-
-from yazm.ops import op_new_line, op_print, op_print_addr, op_print_char
-from yazm.ops import op_print_num, op_print_obj, op_print_paddr, op_print_ret
 
 
 def test_print_op():
@@ -707,16 +745,6 @@ def test_print_paddr_op():
 
 
 # --- Object ops ---
-
-from yazm.ops import (
-    op_clear_attr,
-    op_get_child,
-    op_get_parent,
-    op_get_sibling,
-    op_insert_obj,
-    op_remove_obj,
-    op_set_attr,
-)
 
 
 def test_set_attr_op():
@@ -818,8 +846,6 @@ def test_get_parent_op():
 
 # --- Property ops ---
 
-from yazm.ops import op_get_next_prop, op_get_prop, op_get_prop_addr, op_get_prop_len, op_put_prop
-
 
 def test_get_prop_op():
     zm = make_zm()
@@ -867,8 +893,6 @@ def test_put_prop_op():
 
 # --- Input / Status ---
 
-from yazm.ops import op_show_status, op_sread
-
 
 def test_sread_op():
     zm = make_zm_cap(input_text="north")
@@ -889,8 +913,6 @@ def test_show_status_op():
 
 
 # --- Random ---
-
-from yazm.ops import op_random
 
 
 def test_random_positive_range():
@@ -917,8 +939,6 @@ def test_random_negative_seeds():
 
 # --- Verify / Piracy ---
 
-from yazm.ops import op_piracy, op_verify
-
 
 def test_verify_op():
     zm = make_zm()
@@ -937,8 +957,6 @@ def test_piracy_always_passes():
 
 
 # --- Save / Restore ---
-
-from yazm.ops import op_restore, op_save
 
 
 def test_save_op_no_filename():
@@ -982,8 +1000,6 @@ def test_restore_op_success(tmp_path):
 
 # --- Save/Restore Undo ---
 
-from yazm.ops import op_restore_undo, op_save_undo
-
 
 def test_save_undo_op():
     zm = make_zm()
@@ -1011,8 +1027,6 @@ def test_restore_undo_op():
 
 # --- Restart / Pop ---
 
-from yazm.ops import op_pop, op_restart
-
 
 def test_restart_op():
     zm = make_zm()
@@ -1033,8 +1047,6 @@ def test_pop_op():
 
 # --- Dispatch error ---
 
-from yazm.ops import dispatch
-
 
 def test_dispatch_unimplemented_opcode():
     zm = make_zm()
@@ -1042,3 +1054,30 @@ def test_dispatch_unimplemented_opcode():
     instr = Instruction(addr=0x50, opcode=Opcode.OP1_136, name="call_1s", store=None, next_=0x100)
     with pytest.raises(Exception, match="Unimplemented"):
         dispatch(zm, instr, [])
+
+
+def test_print_obj_web_ui_wraps_object_in_span():
+    """ZUIWeb wraps object names in <span> with class='object'."""
+    zm = ZMachine(ZSAMPLE_DATA)
+    zm.ui = ZUIWeb()
+    zm.frames.append(Frame(resume=0, store=None, locals_=[0, 0, 0, 0, 0], arguments=[]))
+    instr = make_instr(next_=0x100)
+    # Object 1 should not be current location (global 0), so class="object"
+    op_print_obj(zm, instr, [1])
+    output = zm.ui.get_output()
+    assert '<span class="object">' in output
+    assert "</span>" in output
+
+
+def test_print_obj_web_ui_wraps_location_in_span():
+    """ZUIWeb wraps location object names in <span> with class='location'."""
+    zm = ZMachine(ZSAMPLE_DATA)
+    zm.ui = ZUIWeb()
+    zm.frames.append(Frame(resume=0, store=None, locals_=[0, 0, 0, 0, 0], arguments=[]))
+    # Set global 0 (current location) to object 1
+    zm.write_global(0, 1)
+    instr = make_instr(next_=0x100)
+    op_print_obj(zm, instr, [1])
+    output = zm.ui.get_output()
+    assert '<span class="location">' in output
+    assert "</span>" in output

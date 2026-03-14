@@ -153,8 +153,8 @@ def test_decode_long_form_both_small(sample_zmachine):
     addr = 0x100
     # raw_code=0x01: LONG, je, both SMALL operands
     zm.memory.write_u8(addr, 0x01)
-    zm.memory.write_u8(addr + 1, 5)    # small arg 0
-    zm.memory.write_u8(addr + 2, 5)    # small arg 1
+    zm.memory.write_u8(addr + 1, 5)  # small arg 0
+    zm.memory.write_u8(addr + 2, 5)  # small arg 1
     # branch: condition=True, 1-byte, offset=4 → 0b1100_0100 = 0xC4
     zm.memory.write_u8(addr + 3, 0xC4)
     instr = Instruction.decode(zm, addr)
@@ -173,8 +173,8 @@ def test_decode_long_form_variable_operand(sample_zmachine):
     addr = 0x100
     # raw_code=0x41: LONG, je, var+small (bit6=1, bit5=0)
     zm.memory.write_u8(addr, 0x41)
-    zm.memory.write_u8(addr + 1, 1)    # variable index 1
-    zm.memory.write_u8(addr + 2, 5)    # small arg
+    zm.memory.write_u8(addr + 1, 1)  # variable index 1
+    zm.memory.write_u8(addr + 2, 5)  # small arg
     zm.memory.write_u8(addr + 3, 0xC4)
     instr = Instruction.decode(zm, addr)
     assert instr.optypes[0] == OperandType.VARIABLE
@@ -187,7 +187,7 @@ def test_decode_short_form_small_operand(sample_zmachine):
     addr = 0x100
     # raw_code=0x90: SHORT, bits5-4=01 → SMALL, opcode=0+128=jz
     zm.memory.write_u8(addr, 0x90)
-    zm.memory.write_u8(addr + 1, 0x05)   # small operand = 5
+    zm.memory.write_u8(addr + 1, 0x05)  # small operand = 5
     # branch: condition=True, 1-byte, offset=2 → 0b1100_0010 = 0xC2
     zm.memory.write_u8(addr + 2, 0xC2)
     instr = Instruction.decode(zm, addr)
@@ -203,7 +203,7 @@ def test_decode_short_form_large_operand(sample_zmachine):
     # raw_code=0x80: SHORT, bits5-4=00 → LARGE, opcode=0+128=jz
     zm.memory.write_u8(addr, 0x80)
     zm.memory.write_u16(addr + 1, 0x1234)  # large operand
-    zm.memory.write_u8(addr + 3, 0xC3)     # branch byte
+    zm.memory.write_u8(addr + 3, 0xC3)  # branch byte
     instr = Instruction.decode(zm, addr)
     assert instr.opcode == Opcode.OP1_128
     assert instr.optypes[0] == OperandType.LARGE
@@ -229,9 +229,9 @@ def test_decode_var_form_2op(sample_zmachine):
     # szbyte=0b0111_1111: SMALL(01), SMALL(01), OMIT(11) → 2 small args
     zm.memory.write_u8(addr, 0xC1)
     zm.memory.write_u8(addr + 1, 0b0101_1111)  # SMALL, SMALL, OMIT
-    zm.memory.write_u8(addr + 2, 5)             # first arg
-    zm.memory.write_u8(addr + 3, 5)             # second arg
-    zm.memory.write_u8(addr + 4, 0xC4)          # branch
+    zm.memory.write_u8(addr + 2, 5)  # first arg
+    zm.memory.write_u8(addr + 3, 5)  # second arg
+    zm.memory.write_u8(addr + 4, 0xC4)  # branch
     instr = Instruction.decode(zm, addr)
     assert instr.opcode == Opcode.OP2_1  # je (2OP opcode 1)
     assert len(instr.operands) == 2
@@ -246,7 +246,7 @@ def test_decode_var_form_var_count(sample_zmachine):
     zm.memory.write_u8(addr, 0xE0)
     zm.memory.write_u8(addr + 1, 0b0011_1111)
     zm.memory.write_u16(addr + 2, 0x0080)  # packed address
-    zm.memory.write_u8(addr + 4, 1)        # store variable
+    zm.memory.write_u8(addr + 4, 1)  # store variable
     instr = Instruction.decode(zm, addr)
     assert instr.opcode == Opcode.VAR_224  # call
     assert instr.store == 1
@@ -257,10 +257,10 @@ def test_decode_ext_form(sample_zmachine):
     """EXT form (save_undo = opcode 9)."""
     zm = sample_zmachine
     addr = 0x100
-    zm.memory.write_u8(addr, 0xBE)      # EXT marker
+    zm.memory.write_u8(addr, 0xBE)  # EXT marker
     zm.memory.write_u8(addr + 1, 0x09)  # opcode 9 → EXT_1009 = save_undo
     zm.memory.write_u8(addr + 2, 0xFF)  # szbyte: all OMIT → 0 operands
-    zm.memory.write_u8(addr + 3, 1)     # store variable (save_undo stores result)
+    zm.memory.write_u8(addr + 3, 1)  # store variable (save_undo stores result)
     instr = Instruction.decode(zm, addr)
     assert instr.opcode == Opcode.EXT_1009  # save_undo
     assert instr.store == 1
@@ -271,8 +271,8 @@ def test_decode_branch_returns_zero(sample_zmachine):
     """Branch with offset=0 → Branch(returns=0)."""
     zm = sample_zmachine
     addr = 0x100
-    zm.memory.write_u8(addr, 0x80)      # SHORT jz with LARGE op
-    zm.memory.write_u16(addr + 1, 1)    # operand
+    zm.memory.write_u8(addr, 0x80)  # SHORT jz with LARGE op
+    zm.memory.write_u16(addr + 1, 1)  # operand
     zm.memory.write_u8(addr + 3, 0xC0)  # condition=True, 1-byte, offset=0 → returns 0
     instr = Instruction.decode(zm, addr)
     assert instr.branch is not None
@@ -296,7 +296,7 @@ def test_decode_two_byte_branch(sample_zmachine):
     zm = sample_zmachine
     addr = 0x100
     zm.memory.write_u8(addr, 0x80)
-    zm.memory.write_u16(addr + 1, 1)    # operand
+    zm.memory.write_u16(addr + 1, 1)  # operand
     # branch: condition=True, 2-byte offset → bit7=1, bit6=0, high bits=0
     zm.memory.write_u8(addr + 3, 0x80)  # condition=True, 2-byte, high 6 bits = 0
     zm.memory.write_u8(addr + 4, 0x10)  # low byte: offset = 16

@@ -1,6 +1,8 @@
 import pytest
 
+from yazm.enums import Opcode, OperandType
 from yazm.frame import Frame
+from yazm.zinstruction import Instruction
 from yazm.zmachine import ZMachine
 
 from ._sample_data import ZSAMPLE_DATA
@@ -163,7 +165,7 @@ def test_get_prop_value_default(sample_zmachine):
     # Property 31 (max for v3) is unlikely to be defined on most objects
     # If not found, returns default from property defaults table
     value = zm.get_prop_value(1, 31)
-    default = zm.get_default_prop(31)
+    _ = zm.get_default_prop(31)
     # These should be equal since prop 31 likely doesn't exist on obj 1
     # (If it does, that's fine too - the test just verifies no crash)
     assert isinstance(value, int)
@@ -383,9 +385,6 @@ def test_process_branch_no_branch(sample_zmachine):
 # Additional coverage tests
 # =============================================================================
 
-from yazm.enums import Opcode, OperandType
-from yazm.zinstruction import Instruction
-
 
 class _CapUI:
     def __init__(self):
@@ -411,7 +410,6 @@ class _CapUI:
 
 
 def test_zobject_print_tree(sample_zmachine):
-    from yazm.zmachine import ZObject
 
     zm = sample_zmachine
     tree = zm.get_object_tree()
@@ -498,7 +496,6 @@ def test_clear_attr_out_of_bounds(sample_zmachine):
 
 
 def test_find_prop_zero_returns_empty(sample_zmachine):
-    from yazm.zmachine import ZObjectProperty
 
     zm = sample_zmachine
     prop = zm.find_prop(1, 0)
@@ -835,14 +832,14 @@ def test_do_call_valid_address(sample_zmachine):
     zm.frames.append(Frame(resume=0, store=None, locals_=[0, 0, 0, 0, 0], arguments=[]))
     # Write a minimal v3 routine at byte address 0x200: 2 locals, initial values 10, 20
     routine_addr = 0x200
-    zm.memory.write_u8(routine_addr, 2)         # 2 locals
-    zm.memory.write_u16(routine_addr + 1, 10)   # local 0 init = 10
-    zm.memory.write_u16(routine_addr + 3, 20)   # local 1 init = 20
-    packed_addr = routine_addr // 2             # v3: packed = byte_addr / 2
+    zm.memory.write_u8(routine_addr, 2)  # 2 locals
+    zm.memory.write_u16(routine_addr + 1, 10)  # local 0 init = 10
+    zm.memory.write_u16(routine_addr + 3, 20)  # local 1 init = 20
+    packed_addr = routine_addr // 2  # v3: packed = byte_addr / 2
     frame_count_before = len(zm.frames)
     instr = Instruction(addr=0x50, opcode=Opcode.VAR_224, name="call", store=None, next_=0x300)
     zm.do_call(instr, packed_addr, [])
-    assert zm.pc == routine_addr + 5            # past 1+2*2 bytes of routine header
+    assert zm.pc == routine_addr + 5  # past 1+2*2 bytes of routine header
     assert len(zm.frames) == frame_count_before + 1
     new_frame = zm.frames[-1]
     assert new_frame.locals[0] == 10
