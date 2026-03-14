@@ -82,7 +82,7 @@ def test_unpack_via_dictionary():
     """Dictionary entries are packed strings that exercise the unpacker."""
     zm = make_zm()
     # Read a dictionary entry
-    for word, addr in zm.dictionary.items():
+    for word, _addr in zm.dictionary.items():
         assert isinstance(word, str)
         assert len(word) > 0
         break  # just check the first one

@@ -1,10 +1,9 @@
 """Tests for the Header class."""
 
-import pytest
 
-from yazm.zmachine import ZMachine
 from yazm.zdata import ZData
-from yazm.zheader import Header, Flag1, Flag2
+from yazm.zheader import Header
+from yazm.zmachine import ZMachine
 
 from ._sample_data import ZSAMPLE_DATA
 
@@ -30,7 +29,8 @@ def test_header_file_length_v4():
     """Simulate a v4 header: file_length = raw * 4."""
     data = bytearray(ZSAMPLE_DATA)
     data[0x0] = 4                          # version = 4
-    data[0x1A] = 0x01; data[0x1B] = 0x00  # raw_file_length = 256
+    data[0x1A] = 0x01
+    data[0x1B] = 0x00  # raw_file_length = 256
     header = Header(ZData(bytes(data)))
     assert header.file_length == 256 * 4
 
@@ -39,7 +39,8 @@ def test_header_file_length_v6():
     """Simulate a v6 header: file_length = raw * 8."""
     data = bytearray(ZSAMPLE_DATA)
     data[0x0] = 6
-    data[0x1A] = 0x01; data[0x1B] = 0x00  # raw = 256
+    data[0x1A] = 0x01
+    data[0x1B] = 0x00  # raw = 256
     header = Header(ZData(bytes(data)))
     assert header.file_length == 256 * 8
 
@@ -83,7 +84,8 @@ def test_flag2_properties():
 
 def test_flag2_transcripting():
     data = bytearray(ZSAMPLE_DATA)
-    data[0x10] = 0x00; data[0x11] = 0b00000001  # transcripting_on bit
+    data[0x10] = 0x00
+    data[0x11] = 0b00000001  # transcripting_on bit
     header = Header(ZData(bytes(data)))
     assert header.flag2.transcripting_on is True
 
