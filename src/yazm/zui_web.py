@@ -41,8 +41,9 @@ class ZUIWeb:
     def zoutput(self, text: str):
         self._output_buffer.append(text)
 
-    def zoutput_object(self, text: str, highlight: bool = False, is_location: bool = False):
-        self._output_buffer.append(text)
+    def zoutput_object(self, text: str, _highlight: bool = False, is_location: bool = False):
+        css_class = "location" if is_location else "object"
+        self._output_buffer.append(f'<span class="{css_class}">{text}</span>')
 
     def zinput(self) -> str:
         if self._pending_input is not None:

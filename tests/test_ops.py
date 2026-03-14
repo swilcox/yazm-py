@@ -1042,3 +1042,34 @@ def test_dispatch_unimplemented_opcode():
     instr = Instruction(addr=0x50, opcode=Opcode.OP1_136, name="call_1s", store=None, next_=0x100)
     with pytest.raises(Exception, match="Unimplemented"):
         dispatch(zm, instr, [])
+
+
+def test_print_obj_web_ui_wraps_object_in_span():
+    """ZUIWeb wraps object names in <span> with class='object'."""
+    from yazm.zui_web import ZUIWeb
+
+    zm = ZMachine(ZSAMPLE_DATA)
+    zm.ui = ZUIWeb()
+    zm.frames.append(Frame(resume=0, store=None, locals_=[0, 0, 0, 0, 0], arguments=[]))
+    instr = make_instr(next_=0x100)
+    # Object 1 should not be current location (global 0), so class="object"
+    op_print_obj(zm, instr, [1])
+    output = zm.ui.get_output()
+    assert '<span class="object">' in output
+    assert "</span>" in output
+
+
+def test_print_obj_web_ui_wraps_location_in_span():
+    """ZUIWeb wraps location object names in <span> with class='location'."""
+    from yazm.zui_web import ZUIWeb
+
+    zm = ZMachine(ZSAMPLE_DATA)
+    zm.ui = ZUIWeb()
+    zm.frames.append(Frame(resume=0, store=None, locals_=[0, 0, 0, 0, 0], arguments=[]))
+    # Set global 0 (current location) to object 1
+    zm.write_global(0, 1)
+    instr = make_instr(next_=0x100)
+    op_print_obj(zm, instr, [1])
+    output = zm.ui.get_output()
+    assert '<span class="location">' in output
+    assert "</span>" in output
