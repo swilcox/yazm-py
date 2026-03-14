@@ -383,7 +383,6 @@ class ZMachine:
         # handle read
         # advance pc to next
 
-
     def get_parent(self, obj_id: int) -> int:
         if obj_id == 0:
             return 0

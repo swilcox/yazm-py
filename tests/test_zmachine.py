@@ -385,6 +385,7 @@ def test_process_branch_no_branch(sample_zmachine):
 # Additional coverage tests
 # =============================================================================
 
+
 class _CapUI:
     def __init__(self):
         self.output = []
@@ -831,14 +832,14 @@ def test_do_call_valid_address(sample_zmachine):
     zm.frames.append(Frame(resume=0, store=None, locals_=[0, 0, 0, 0, 0], arguments=[]))
     # Write a minimal v3 routine at byte address 0x200: 2 locals, initial values 10, 20
     routine_addr = 0x200
-    zm.memory.write_u8(routine_addr, 2)         # 2 locals
-    zm.memory.write_u16(routine_addr + 1, 10)   # local 0 init = 10
-    zm.memory.write_u16(routine_addr + 3, 20)   # local 1 init = 20
-    packed_addr = routine_addr // 2             # v3: packed = byte_addr / 2
+    zm.memory.write_u8(routine_addr, 2)  # 2 locals
+    zm.memory.write_u16(routine_addr + 1, 10)  # local 0 init = 10
+    zm.memory.write_u16(routine_addr + 3, 20)  # local 1 init = 20
+    packed_addr = routine_addr // 2  # v3: packed = byte_addr / 2
     frame_count_before = len(zm.frames)
     instr = Instruction(addr=0x50, opcode=Opcode.VAR_224, name="call", store=None, next_=0x300)
     zm.do_call(instr, packed_addr, [])
-    assert zm.pc == routine_addr + 5            # past 1+2*2 bytes of routine header
+    assert zm.pc == routine_addr + 5  # past 1+2*2 bytes of routine header
     assert len(zm.frames) == frame_count_before + 1
     new_frame = zm.frames[-1]
     assert new_frame.locals[0] == 10

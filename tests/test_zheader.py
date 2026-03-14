@@ -1,6 +1,5 @@
 """Tests for the Header class."""
 
-
 from yazm.zdata import ZData
 from yazm.zheader import Header
 from yazm.zmachine import ZMachine
@@ -28,7 +27,7 @@ def test_header_file_length_v3():
 def test_header_file_length_v4():
     """Simulate a v4 header: file_length = raw * 4."""
     data = bytearray(ZSAMPLE_DATA)
-    data[0x0] = 4                          # version = 4
+    data[0x0] = 4  # version = 4
     data[0x1A] = 0x01
     data[0x1B] = 0x00  # raw_file_length = 256
     header = Header(ZData(bytes(data)))
@@ -49,6 +48,7 @@ def test_flag1_v3_score_mode():
     zm = make_zm()
     flag1 = zm.header.flag1
     from yazm.enums import StatusLineType
+
     assert flag1.status_line_type == StatusLineType.score
 
 
@@ -58,6 +58,7 @@ def test_flag1_v3_time_mode():
     zm.memory[0x1] = 0b00000010  # bit 1 = time mode
     flag1 = zm.header.flag1
     from yazm.enums import StatusLineType
+
     # bit 1 set → status_line_type != score (non-zero value)
     assert flag1.status_line_type != StatusLineType.score
     zm.memory[0x1] = original

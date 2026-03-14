@@ -564,6 +564,7 @@ def test_dispatch_table_has_all_common_opcodes():
 # Additional coverage tests
 # =============================================================================
 
+
 class _CapUI:
     """Minimal UI mock: captures output, provides canned input."""
 
